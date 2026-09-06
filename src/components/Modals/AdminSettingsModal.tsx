@@ -34,7 +34,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   setAlertMsg,
 }) => {
   const { t, lang } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'system' | 'concurrency' | 'gdrive' | 'firebase' | 'inspectors' | 'colors'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'concurrency' | 'gdrive' | 'inspectors' | 'colors'>('system');
 
   // Form states for settings
   const [formData, setFormData] = useState<WebSettings>({
@@ -168,17 +168,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
           }`}
         >
           <Icons.Cloud /> {lang === 'th' ? 'Google Drive (15GB)' : 'Google Drive'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('firebase')}
-          className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-            activeTab === 'firebase'
-              ? 'border-blue-600 text-blue-600 bg-white rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Icons.Shield /> {lang === 'th' ? 'Firebase Cloud 100%' : 'Firebase Config'}
         </button>
         <button
           type="button"
@@ -483,106 +472,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                   />
                   <span>สร้างโฟลเดอร์ย่อยตามชื่อโครงการและเลข Equipment อัตโนมัติ</span>
                 </label>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3.5: FIREBASE CLOUD DATABASE (100% PRODUCTION) */}
-        {activeTab === 'firebase' && (
-          <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-50 via-amber-50 to-red-50 border-2 border-orange-300 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-orange-950 flex items-center gap-1.5">
-                  <Icons.Shield size={16} className="text-orange-600" />
-                  การเชื่อมต่อ Firebase Cloud Firestore 100%
-                </h4>
-                <span className="text-[10px] bg-orange-600 text-white font-bold px-2 py-0.5 rounded-full">
-                  Production Cloud
-                </span>
-              </div>
-              <p className="text-[11px] text-orange-900 leading-relaxed">
-                ระบบเชื่อมต่อกับ Cloud Firestore จริงโดยอัตโนมัติ ข้อมูลคิวตรวจ, รายชื่อผู้ตรวจ, บัญชีผู้ใช้งาน และการตั้งค่าจะถูกจัดเก็บบน Google Cloud Platform สามารถระบุคีย์โครงการ Firebase ขององค์กรได้โดยตรงที่นี่
-              </p>
-            </div>
-
-            <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  Firebase Project ID:
-                </label>
-                <input
-                  type="text"
-                  value={formData.firebaseProjectId || 'sais-schedule-booking'}
-                  onChange={(e) => setFormData({ ...formData, firebaseProjectId: e.target.value })}
-                  placeholder="เช่น sais-schedule-booking"
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    API Key:
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firebaseApiKey || ''}
-                    onChange={(e) => setFormData({ ...formData, firebaseApiKey: e.target.value })}
-                    placeholder="AIzaSy..."
-                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    Auth Domain:
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firebaseAuthDomain || 'sais-schedule-booking.firebaseapp.com'}
-                    onChange={(e) => setFormData({ ...formData, firebaseAuthDomain: e.target.value })}
-                    placeholder="your-app.firebaseapp.com"
-                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    Storage Bucket:
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firebaseStorageBucket || 'sais-schedule-booking.appspot.com'}
-                    onChange={(e) => setFormData({ ...formData, firebaseStorageBucket: e.target.value })}
-                    placeholder="your-app.appspot.com"
-                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    App ID:
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firebaseAppId || '1:923348657053:web:dca3dc60b02845c1'}
-                    onChange={(e) => setFormData({ ...formData, firebaseAppId: e.target.value })}
-                    placeholder="1:123456789:web:abcdef..."
-                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-800 space-y-1">
-                <span className="font-bold block flex items-center gap-1">
-                  <Icons.Check size={14} className="text-emerald-600" /> สถานะคลาวด์ปัจจุบัน:
-                </span>
-                <p>
-                  ระบบมีฐานข้อมูลในตัวพร้อมสตรีม Realtime WebSocket ตลอด 24 ชั่วโมง และหากไม่มีอินเทอร์เน็ตจะสลับไปใช้ Local Storage อัตโนมัติ (Offline First) ข้อมูลไม่สูญหาย
-                </p>
               </div>
             </div>
           </div>
