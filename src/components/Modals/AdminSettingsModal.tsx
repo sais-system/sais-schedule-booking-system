@@ -60,7 +60,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   const handleSave = () => {
     onSaveSettings(formData);
     onSaveInspectors(inspectorList);
-    setAlertMsg(lang === 'th' ? 'บันทึกการตั้งค่าระบบผู้ดูแล (Admin) เรียบร้อยแล้ว 100%' : 'Admin settings saved successfully!');
+    setAlertMsg(lang === 'th' ? 'บันทึกการตั้งค่าระบบผู้ดูแล (Admin) และอัปเดตตารางเรียบร้อยแล้ว' : 'Admin settings saved successfully!');
     onClose();
   };
 
@@ -73,10 +73,12 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
       setAlertMsg('มีชื่อผู้ตรวจนี้ในระบบแล้ว');
       return;
     }
-    setInspectorList((prev) => [
-      ...prev,
+    const updated = [
+      ...inspectorList,
       { name: newInspectorName.trim(), product_lines: newInspectorLines.trim() },
-    ]);
+    ];
+    setInspectorList(updated);
+    onSaveInspectors(updated); // บันทึกและอัปเดตตารางทันที
     setNewInspectorName('');
   };
 
@@ -85,13 +87,16 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
       setAlertMsg('ต้องมีผู้ตรวจอย่างน้อย 1 คน');
       return;
     }
-    setInspectorList((prev) => prev.filter((i) => i.name !== name));
+    const updated = inspectorList.filter((i) => i.name !== name);
+    setInspectorList(updated);
+    onSaveInspectors(updated); // บันทึกและอัปเดตตารางทันที
   };
 
   const handleUpdateInspectorLines = (idx: number, lines: string) => {
     const updated = [...inspectorList];
     updated[idx] = { ...updated[idx], product_lines: lines };
     setInspectorList(updated);
+    onSaveInspectors(updated); // อัปเดตทันที
   };
 
   const handleMoveInspector = (index: number, direction: 'up' | 'down') => {
@@ -102,6 +107,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
       [updated[index + 1], updated[index]] = [updated[index], updated[index + 1]];
     }
     setInspectorList(updated);
+    onSaveInspectors(updated); // บันทึกสลับตำแหน่งและอัปเดตตารางทันที
   };
 
   return (
@@ -289,7 +295,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
           </div>
         )}
 
-        {/* TAB 2: HIGH CONCURRENCY ENGINE (300-500 Viewers, 100 Users, 10 Inspectors) */}
+        {/* TAB 2: HIGH CONCURRENCY ENGINE */}
         {activeTab === 'concurrency' && (
           <div className="space-y-4">
             <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border border-blue-200 space-y-3">
@@ -387,23 +393,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                 </span>
               </label>
             </div>
-
-            <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between text-xs">
-              <div>
-                <span className="font-bold text-emerald-900 block">สถิติระบบปัจจุบัน:</span>
-                <span className="text-emerald-700 text-[11px]">
-                  งานในระบบ: {bookings.length} คิว | ผู้ตรวจ: {inspectorList.length} คน | บัญชีผู้ใช้:{' '}
-                  {users.length} คน
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={onOpenCloudSync}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1"
-              >
-                <Icons.RefreshCw size={12} /> ตรวจสอบ Cloud
-              </button>
-            </div>
           </div>
         )}
 
@@ -440,9 +429,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                   placeholder="เช่น 1_SAIS_LIFT_ESCALATOR_DOCS_ROOT หรือ รหัสโฟลเดอร์ Google Drive"
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] bg-white"
                 />
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  ระบุ Folder ID จาก Google Drive ที่แชร์ให้ทีมงานเข้าถึงได้
-                </span>
               </div>
 
               <div>
@@ -459,25 +445,11 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] bg-white"
                 />
               </div>
-
-              <div className="pt-2 border-t border-slate-200">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={formData.gdriveAutoOrganizeByProject ?? true}
-                    onChange={(e) =>
-                      setFormData({ ...formData, gdriveAutoOrganizeByProject: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-blue-600"
-                  />
-                  <span>สร้างโฟลเดอร์ย่อยตามชื่อโครงการและเลข Equipment อัตโนมัติ</span>
-                </label>
-              </div>
             </div>
           </div>
         )}
 
-        {/* TAB 4: INSPECTORS MANAGEMENT (10 INSPECTORS) */}
+        {/* TAB 4: INSPECTORS MANAGEMENT */}
         {activeTab === 'inspectors' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -489,9 +461,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                   กำหนดโมเดลที่ผู้ตรวจแต่ละท่านมีใบรับรองความชำนาญ (Certificates)
                 </span>
               </div>
-              <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                เป้าหมาย: 10 คน
-              </span>
             </div>
 
             {/* List */}
@@ -515,7 +484,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       onChange={(e) => handleUpdateInspectorLines(idx, e.target.value)}
                       placeholder="เช่น ES1, 3300, 5500"
                       className="w-full text-[11px] p-1.5 rounded-lg border border-slate-300 font-medium bg-white"
-                      title="โมเดลสินค้าที่รับตรวจ"
                     />
                   </div>
 
@@ -524,8 +492,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       type="button"
                       onClick={() => handleMoveInspector(idx, 'up')}
                       disabled={idx === 0}
-                      className="p-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors font-bold"
-                      title="เลื่อนลำดับขึ้น"
+                      className="p-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-30 font-bold"
                     >
                       ↑
                     </button>
@@ -533,16 +500,14 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       type="button"
                       onClick={() => handleMoveInspector(idx, 'down')}
                       disabled={idx === inspectorList.length - 1}
-                      className="p-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors font-bold"
-                      title="เลื่อนลำดับลง"
+                      className="p-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-30 font-bold"
                     >
                       ↓
                     </button>
                     <button
                       type="button"
                       onClick={() => handleRemoveInspector(ins.name)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-1"
-                      title="ลบผู้ตรวจนี้"
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg ml-1"
                     >
                       <Icons.Trash />
                     </button>
@@ -559,14 +524,14 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="text"
-                  placeholder="ชื่อผู้ตรวจ (เช่น สมศักดิ์)"
+                  placeholder="ชื่อผู้ตรวจ"
                   value={newInspectorName}
                   onChange={(e) => setNewInspectorName(e.target.value)}
                   className="text-xs p-2 rounded-xl border border-blue-200 bg-white font-bold"
                 />
                 <input
                   type="text"
-                  placeholder="โมเดลสินค้า (เช่น ES1, 3300, 5500)"
+                  placeholder="โมเดลสินค้า (เช่น ES1, 3300)"
                   value={newInspectorLines}
                   onChange={(e) => setNewInspectorLines(e.target.value)}
                   className="text-xs p-2 rounded-xl border border-blue-200 bg-white font-medium"
@@ -595,57 +560,22 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                 <label className="text-[10px] font-bold text-slate-600 block mb-1">
                   สีแถบ Header บนสุด
                 </label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={formData.headerBg || '#1e293b'}
-                    onChange={(e) => setFormData({ ...formData, headerBg: e.target.value })}
-                    className="w-8 h-8 rounded border border-slate-300 cursor-pointer"
-                  />
-                  <span className="font-mono text-[10px]">{formData.headerBg}</span>
-                </div>
+                <input
+                  type="color"
+                  value={formData.headerBg || '#1e293b'}
+                  onChange={(e) => setFormData({ ...formData, headerBg: e.target.value })}
+                  className="w-8 h-8 rounded border border-slate-300 cursor-pointer"
+                />
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-slate-600 block mb-1">
                   สีหัวตารางปฏิทิน
                 </label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={formData.tableHeaderBg || '#1e293b'}
-                    onChange={(e) => setFormData({ ...formData, tableHeaderBg: e.target.value })}
-                    className="w-8 h-8 rounded border border-slate-300 cursor-pointer"
-                  />
-                  <span className="font-mono text-[10px]">{formData.tableHeaderBg}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                  ความกว้างคอลัมน์ (px)
-                </label>
                 <input
-                  type="number"
-                  min={80}
-                  max={200}
-                  value={formData.gridColWidth || 120}
-                  onChange={(e) => setFormData({ ...formData, gridColWidth: Number(e.target.value) })}
-                  className="w-full text-xs p-1.5 rounded-lg border border-slate-300 font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                  รัศมีมุมการ์ด (px)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={20}
-                  value={formData.cardRadius || 6}
-                  onChange={(e) => setFormData({ ...formData, cardRadius: Number(e.target.value) })}
-                  className="w-full text-xs p-1.5 rounded-lg border border-slate-300 font-bold"
+                  type="color"
+                  value={formData.tableHeaderBg || '#1e293b'}
+                  onChange={(e) => setFormData({ ...formData, tableHeaderBg: e.target.value })}
+                  className="w-8 h-8 rounded border border-slate-300 cursor-pointer"
                 />
               </div>
             </div>
@@ -658,7 +588,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+          className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs"
         >
           {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
         </button>
@@ -666,7 +596,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
         <button
           type="button"
           onClick={handleSave}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 flex items-center gap-1.5"
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md"
         >
           <Icons.Check />
           {lang === 'th' ? 'บันทึกการตั้งค่าทั้งหมด' : 'Save All Settings'}
