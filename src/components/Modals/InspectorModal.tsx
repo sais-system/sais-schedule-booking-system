@@ -114,7 +114,6 @@ export const InspectorModal: React.FC<InspectorModalProps> = ({
               return (
                 <label
                   key={pl}
-                  onClick={() => toggleCert(pl)}
                   className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
                     checked
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
@@ -124,8 +123,8 @@ export const InspectorModal: React.FC<InspectorModalProps> = ({
                   <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => {}}
-                    className="w-3.5 h-3.5 accent-white rounded pointer-events-none"
+                    onChange={() => toggleCert(pl)}
+                    className="w-3.5 h-3.5 accent-white rounded cursor-pointer"
                   />
                   <span className="truncate">{pl}</span>
                 </label>
