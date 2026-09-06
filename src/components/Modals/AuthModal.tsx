@@ -80,14 +80,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         position: position.trim(),
         phone: phone.trim(),
         role: 'user',
-        status: 'approved', // Auto-approved or pending based on system setup
+        status: 'pending', // เปลี่ยนเป็น pending เพื่อรอ Admin อนุมัติ
         created_at: new Date().toISOString(),
       };
 
       onRegister(newUser);
-      setSuccessModal('สมัครสมาชิกเรียบร้อย เข้าใช้งานได้ทันที');
-      onLogin(newUser);
-      if (onClose) onClose();
+      setSuccessModal('สมัครสมาชิกเรียบร้อยแล้ว บัญชีของคุณกำลังรอการอนุมัติสิทธิ์จากระบบ (Admin) ก่อนเข้าใช้งาน');
+      setMode('login'); // กลับไปที่หน้าล็อกอินโดยไม่ล็อกอินอัตโนมัติ
     } else if (mode === 'forgot') {
       if (password !== confirmPassword) {
         setAlertMsg('รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน');
