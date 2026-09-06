@@ -3,12 +3,16 @@ import { Icons } from '../Icons';
 
 interface CloudShareModalProps {
   onClose: () => void;
-  appUrl: string;
+  appUrl?: string;
 }
 
 export const CloudShareModal: React.FC<CloudShareModalProps> = ({ onClose, appUrl }) => {
+  // ดึง URL จริงของเว็บมาใช้โดยอัตโนมัติ (เช่น https://stem.vercel.app)
+  const displayUrl = appUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://sais.app');
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(appUrl);
+    if (!displayUrl) return;
+    navigator.clipboard.writeText(displayUrl);
     alert('คัดลอกลิงก์เรียบร้อยแล้ว');
   };
 
@@ -55,7 +59,7 @@ export const CloudShareModal: React.FC<CloudShareModalProps> = ({ onClose, appUr
             <input
               type="text"
               readOnly
-              value={appUrl}
+              value={displayUrl}
               className="flex-1 text-xs p-2.5 rounded-xl border border-slate-300 font-mono text-slate-600 bg-white"
             />
             <button
@@ -66,7 +70,7 @@ export const CloudShareModal: React.FC<CloudShareModalProps> = ({ onClose, appUr
             </button>
           </div>
           <a
-            href={appUrl}
+            href={displayUrl}
             target="_blank"
             rel="noreferrer"
             className="w-full block text-center py-2.5 bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-bold rounded-xl transition-colors"
