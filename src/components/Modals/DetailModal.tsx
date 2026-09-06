@@ -153,14 +153,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({
 
   return (
     <>
-      <div className="modal-card p-6 w-full max-w-lg animate-pop bg-white rounded-3xl shadow-2xl relative max-h-[92vh] overflow-y-auto custom-scrollbar">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-full z-40 transition-colors"
-        >
-          <Icons.X />
-        </button>
-
+      <div className="modal-card w-full max-w-lg animate-pop bg-white rounded-3xl shadow-2xl relative flex flex-col max-h-[92vh] overflow-hidden">
+        
         {/* Hidden File Input */}
         <input
           ref={fileInputRef}
@@ -172,413 +166,427 @@ export const DetailModal: React.FC<DetailModalProps> = ({
 
         {/* Upload Toast */}
         {uploadToast && (
-          <div className="absolute top-3 left-6 right-16 bg-emerald-600 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-lg flex items-center gap-1.5 animate-pop z-50">
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-emerald-600 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 animate-pop z-50">
             <Icons.Check /> {uploadToast}
           </div>
         )}
 
-        <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3 pr-10">
-          <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-            <Icons.FileText />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800 leading-tight">รายละเอียดงานตรวจ</h3>
-            <span className="text-[11px] text-slate-400">ID: {booking.id}</span>
+        {/* Header - FIXED TOP */}
+        <div className="p-5 border-b border-slate-100 bg-white flex-shrink-0 relative z-20">
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-full transition-colors"
+          >
+            <Icons.X />
+          </button>
+
+          <div className="flex items-center gap-2 pr-10">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+              <Icons.FileText />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800 leading-tight">รายละเอียดงานตรวจ</h3>
+              <span className="text-[11px] text-slate-400">ID: {booking.id}</span>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4 text-sm text-slate-700">
-          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 grid grid-cols-2 gap-2">
-            <div>
-              <span className="text-slate-400 text-[10px] block font-bold">วันที่ตรวจ</span>
-              <span className="font-black text-slate-800 text-sm">{booking.date || '-'}</span>
-            </div>
-            <div>
-              <span className="text-slate-400 text-[10px] block font-bold">ผู้ตรวจ</span>
-              <span className="font-black text-blue-600 text-sm">
-                {booking.inspector_name === 'SYSTEM_HOLIDAY' || booking.inspector_name === 'SYSTEM_EVENT'
-                  ? 'ทุกคนในบริษัท'
-                  : booking.inspector_name || '-'}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <span className="text-slate-400 text-[10px] block font-bold uppercase">หัวข้อ / โครงการ</span>
-            <span className="font-bold text-slate-900 text-base leading-snug">{booking.site_name || '-'}</span>
-          </div>
-
-          {!isSpecial && (
-            <>
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs">
-                <div>
-                  <span className="text-slate-400 text-[10px] block">Equipment No.</span>
-                  <span className="font-bold text-slate-800">{booking.equipment_no || '-'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[10px] block">Unit No.</span>
-                  <span className="font-bold text-slate-800">{booking.unit_no || '-'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[10px] block">ประเภทงาน</span>
-                  <span className="font-bold text-slate-800">{booking.job_type || '-'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[10px] block">พื้นที่</span>
-                  <span className="font-bold text-slate-800">{booking.area || '-'}</span>
-                </div>
-              </div>
-
-              {booking.tel && (
-                <div className="flex items-center justify-between bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 text-xs">
-                  <span className="text-emerald-800 font-bold">เบอร์ติดต่อหน้างาน</span>
-                  <a href={`tel:${booking.tel}`} className="text-emerald-700 font-black hover:underline">
-                    {booking.tel}
-                  </a>
-                </div>
-              )}
-
+        {/* Scrollable Body */}
+        <div className="p-5 overflow-y-auto custom-scrollbar flex-1 relative bg-white">
+          <div className="space-y-4 text-sm text-slate-700">
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 grid grid-cols-2 gap-2">
               <div>
-                <span className="text-slate-400 text-[10px] block mb-1 font-bold">Product Line</span>
-                <span
-                  className={`font-bold text-white text-xs px-3 py-1 rounded-lg inline-block shadow-sm ${
-                    PRODUCT_COLORS[booking.product_line || ''] || 'bg-slate-600'
-                  }`}
-                >
-                  {booking.product_line || 'ไม่ระบุ'}
+                <span className="text-slate-400 text-[10px] block font-bold">วันที่ตรวจ</span>
+                <span className="font-black text-slate-800 text-sm">{booking.date || '-'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[10px] block font-bold">ผู้ตรวจ</span>
+                <span className="font-black text-blue-600 text-sm">
+                  {booking.inspector_name === 'SYSTEM_HOLIDAY' || booking.inspector_name === 'SYSTEM_EVENT'
+                    ? 'ทุกคนในบริษัท'
+                    : booking.inspector_name || '-'}
                 </span>
               </div>
+            </div>
 
-              {/* DOCUMENT SCANNER & ATTACHMENTS (FEATURE 1) */}
-              <div className="pt-3 border-t border-slate-200">
-                <div className="flex justify-between items-center mb-3">
+            <div>
+              <span className="text-slate-400 text-[10px] block font-bold uppercase">หัวข้อ / โครงการ</span>
+              <span className="font-bold text-slate-900 text-base leading-snug">{booking.site_name || '-'}</span>
+            </div>
+
+            {!isSpecial && (
+              <>
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Icons.FileCheck /> เอกสารประกอบการตรวจ
-                    </h4>
-                    <span className="text-[10px] text-slate-400">
-                      สแกนด้วยกล้องหน้าหรืออัปโหลดรูปภาพเอกสาร
-                    </span>
+                    <span className="text-slate-400 text-[10px] block">Equipment No.</span>
+                    <span className="font-bold text-slate-800">{booking.equipment_no || '-'}</span>
                   </div>
-
-                  {canUploadDocs && (
-                    <button
-                      type="button"
-                      onClick={() => openScannerFor('layout')}
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 active:scale-95 transition-all"
-                    >
-                      <Icons.Camera size={15} /> สแกนเอกสารกล้องหน้า
-                    </button>
-                  )}
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Unit No.</span>
+                    <span className="font-bold text-slate-800">{booking.unit_no || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">ประเภทงาน</span>
+                    <span className="font-bold text-slate-800">{booking.job_type || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">พื้นที่</span>
+                    <span className="font-bold text-slate-800">{booking.area || '-'}</span>
+                  </div>
                 </div>
 
-                {/* 3 Main Documents: Layout, Wiring, Precheck */}
-                <div className="space-y-2.5">
-                  {(['layout', 'wiring', 'precheck'] as const).map((docKey) => {
-                    const fileUrl = booking[`${docKey}_img` as keyof Booking] as string | undefined;
-                    const fileName = booking[`${docKey}_filename` as keyof Booking] as string | undefined;
-                    const rawStatus = booking[`${docKey}_status` as keyof Booking] as string | undefined;
-                    const rawDocFlag = String(booking[`${docKey}_doc` as keyof Booking]);
+                {booking.tel && (
+                  <div className="flex items-center justify-between bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 text-xs">
+                    <span className="text-emerald-800 font-bold">เบอร์ติดต่อหน้างาน</span>
+                    <a href={`tel:${booking.tel}`} className="text-emerald-700 font-black hover:underline">
+                      {booking.tel}
+                    </a>
+                  </div>
+                )}
 
-                    // Determine verification status
-                    const isVerified = rawStatus === 'verified' || rawDocFlag === 'verified';
-                    const hasFile = Boolean(fileUrl) || rawDocFlag === 'true';
-
-                    const docTitles: Record<string, string> = {
-                      layout: 'Layout Document (จำเป็น)',
-                      wiring: 'Wiring Document (จำเป็น)',
-                      precheck: 'Pre-check Document (จำเป็น)',
-                    };
-
-                    const handleToggleVerify = () => {
-                      if (!isAdmin || !onUpdateBooking) return;
-                      const nextVerified = !isVerified;
-                      const updated: Booking = {
-                        ...booking,
-                        [`${docKey}_status`]: nextVerified ? 'verified' : 'pending',
-                        [`${docKey}_doc`]: nextVerified ? 'verified' : (hasFile ? 'true' : 'false'),
-                      };
-                      onUpdateBooking(updated);
-                      setUploadToast(`ปรับสถานะเอกสาร ${docKey.toUpperCase()} เป็น: ${nextVerified ? 'ตรวจสอบแล้ว' : 'รอตรวจสอบ'}`);
-                      setTimeout(() => setUploadToast(null), 2500);
-                    };
-
-                    return (
-                      <div
-                        key={docKey}
-                        className={`p-3.5 rounded-2xl border transition-all ${
-                          isVerified
-                            ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs'
-                            : hasFile
-                            ? 'bg-amber-50/60 border-amber-300 shadow-2xs'
-                            : 'bg-slate-50 border-slate-200'
-                        }`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-bold text-slate-800">
-                                {docTitles[docKey]}
-                              </span>
-                              {fileUrl && (
-                                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                                  <Icons.Cloud size={10} /> Google Drive
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Status label: รอตรวจสอบ vs ตรวจสอบแล้ว */}
-                            <div className="flex items-center gap-2 mt-1">
-                              {hasFile ? (
-                                isVerified ? (
-                                  <span className="text-[11px] bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
-                                    ✓ ตรวจสอบแล้ว
-                                  </span>
-                                ) : (
-                                  <span className="text-[11px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs animate-pulse">
-                                    ⏳ รอตรวจสอบ
-                                  </span>
-                                )
-                              ) : (
-                                <span className="text-[10px] text-red-500 font-bold">
-                                  ❌ ยังไม่ได้แนบไฟล์
-                                </span>
-                              )}
-
-                              {fileName && (
-                                <span className="text-[10px] text-slate-600 font-medium truncate max-w-[160px]" title={fileName}>
-                                  📎 {fileName}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {fileUrl && (
-                              <button
-                                type="button"
-                                onClick={() => onViewFile(fileUrl)}
-                                className="text-[11px] bg-white text-blue-600 border border-blue-300 font-bold px-2.5 py-1.5 rounded-xl hover:bg-blue-50 shadow-2xs flex items-center gap-1"
-                              >
-                                <Icons.Eye size={12} /> ดูเอกสาร
-                              </button>
-                            )}
-
-                            {/* Admin Document Verification Button */}
-                            {isAdmin && hasFile && (
-                              <button
-                                type="button"
-                                onClick={handleToggleVerify}
-                                className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl shadow-2xs transition-colors flex items-center gap-1 ${
-                                  isVerified
-                                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
-                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                }`}
-                                title="กดเพื่อสลับสถานะ ตรวจสอบแล้ว / รอตรวจสอบ"
-                              >
-                                <Icons.CheckCircle size={12} />
-                                {isVerified ? 'ตรวจสอบแล้ว' : 'ยืนยันตรวจผ่าน'}
-                              </button>
-                            )}
-
-                            {canUploadDocs && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setGdriveInputTarget(docKey);
-                                    setGdriveUrlInput(fileUrl?.startsWith('http') && !fileUrl.startsWith('data:') ? fileUrl : '');
-                                  }}
-                                  className="text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
-                                  title="ผูกลิงก์ Google Drive (15GB)"
-                                >
-                                  <Icons.Cloud size={12} />
-                                  Drive
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => openScannerFor(docKey)}
-                                  className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
-                                  title="สแกนด้วยกล้องหน้า"
-                                >
-                                  <Icons.Camera size={12} />
-                                  สแกน
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => triggerFileInput(docKey)}
-                                  className="text-[11px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2 py-1.5 rounded-xl"
-                                  title="อัปโหลดไฟล์ PDF หรือรูปภาพใหม่"
-                                >
-                                  <Icons.Upload size={12} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Site Conditions Photos */}
-              <div className="pt-3 border-t border-slate-200">
-                <div className="flex justify-between items-center mb-2.5">
-                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Icons.Image /> รูปภาพสภาพหน้างาน 6 จุด
-                  </h4>
-                  {canUploadDocs && (
-                    <button
-                      type="button"
-                      onClick={() => openScannerFor('site_cond_1')}
-                      className="text-[11px] text-indigo-600 font-bold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1"
-                    >
-                      <Icons.Camera size={13} /> ถ่ายสภาพหน้างาน
-                    </button>
-                  )}
+                <div>
+                  <span className="text-slate-400 text-[10px] block mb-1 font-bold">Product Line</span>
+                  <span
+                    className={`font-bold text-white text-xs px-3 py-1 rounded-lg inline-block shadow-sm ${
+                      PRODUCT_COLORS[booking.product_line || ''] || 'bg-slate-600'
+                    }`}
+                  >
+                    {booking.product_line || 'ไม่ระบุ'}
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {condLabels.map((cond) => {
-                    const urls = booking[cond.key];
-                    const count = urls ? urls.split(',').filter(Boolean).length : 0;
-
-                    return (
-                      <div
-                        key={cond.key}
-                        className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex flex-col justify-between gap-1.5"
-                      >
-                        <div>
-                          <span className="text-[10px] font-bold text-slate-700 block truncate leading-tight">
-                            {cond.label}
-                          </span>
-                          <span className="text-[9px] text-slate-400 block mt-0.5">
-                            {count > 0 ? `${count} รูปภาพ` : 'ยังไม่มีรูป'}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1 pt-1 border-t border-slate-200/60">
-                          {count > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => onViewFile(urls!.split(',')[0])}
-                              className="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md font-bold hover:bg-indigo-100 flex-1 text-center"
-                            >
-                              ดูรูป
-                            </button>
-                          )}
-                          {canUploadDocs && (
-                            <button
-                              type="button"
-                              onClick={() => openScannerFor(cond.docKey)}
-                              className="text-[9px] bg-slate-800 hover:bg-slate-900 text-white px-2 py-1 rounded-md font-bold flex-1 flex items-center justify-center gap-0.5"
-                            >
-                              <Icons.Camera size={11} /> ถ่าย
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* JOB DIRECT LINK & SHARING (Optimized & Clean) */}
-              <div className="pt-3 border-t border-slate-200">
-                <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white p-3.5 rounded-2xl shadow-md border border-slate-700">
-                  <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-white/10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
-                        <Icons.Check size={16} />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold leading-tight flex items-center gap-1.5">
-                          {lang === 'th' ? 'ลิงก์ตรงและข้อมูลงาน' : 'Job Direct Link & Quick Actions'}
-                        </h4>
-                        <span className="text-[10px] text-slate-400 block font-mono">
-                          ID: <span className="text-blue-300">{booking.id}</span>
-                        </span>
-                      </div>
+                {/* DOCUMENT SCANNER & ATTACHMENTS (FEATURE 1) */}
+                <div className="pt-3 border-t border-slate-200">
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Icons.FileCheck /> เอกสารประกอบการตรวจ
+                      </h4>
+                      <span className="text-[10px] text-slate-400">
+                        สแกนด้วยกล้องหน้าหรืออัปโหลดรูปภาพเอกสาร
+                      </span>
                     </div>
 
-                    <span className="text-[10px] bg-blue-500/20 text-blue-300 font-bold px-2 py-0.5 rounded-md border border-blue-400/30">
-                      Cloud Synced
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <p className="text-[11px] text-slate-300 leading-snug">
-                      {lang === 'th'
-                        ? 'คัดลอกลิงก์ตรงของคิวงานนี้เพื่อส่งต่อให้ผู้ตรวจหรือทีมงานเปิดดูรายละเอียดได้ทันที'
-                        : 'Copy the direct URL of this job to quickly share with inspectors or site team.'}
-                    </p>
-
-                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    {canUploadDocs && (
                       <button
                         type="button"
-                        onClick={handleCopyJobLink}
-                        className="flex-1 sm:flex-initial text-xs px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                        onClick={() => openScannerFor('layout')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 active:scale-95 transition-all"
                       >
-                        <Icons.Copy size={13} /> {copiedLink ? t.copied : t.copyJobLink}
+                        <Icons.Camera size={15} /> สแกนเอกสารกล้องหน้า
                       </button>
-
-                      {booking.tel && (
-                        <a
-                          href={`tel:${booking.tel}`}
-                          className="text-xs px-3 py-2 bg-white/10 hover:bg-white/20 text-slate-200 font-bold rounded-xl border border-white/10 flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                          title="โทรหาเบอร์หน้างาน"
-                        >
-                          <Icons.Phone size={13} className="text-emerald-400" /> โทร
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* GOOGLE MAPS PIN & DIRECT NAVIGATION (FEATURE 2) */}
-              {(booking.map_link || (booking.latitude && booking.longitude)) && (
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Icons.MapPin className="text-red-500" /> ตำแหน่งและการนำทาง Google Maps
-                    </h4>
-                    {booking.latitude && booking.longitude && (
-                      <span className="text-[10px] font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-600">
-                        {booking.latitude.toFixed(4)}, {booking.longitude.toFixed(4)}
-                      </span>
                     )}
                   </div>
 
-                  {booking.address_detail && (
-                    <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                      📍 {booking.address_detail}
-                    </p>
-                  )}
+                  {/* 3 Main Documents: Layout, Wiring, Precheck */}
+                  <div className="space-y-2.5">
+                    {(['layout', 'wiring', 'precheck'] as const).map((docKey) => {
+                      const fileUrl = booking[`${docKey}_img` as keyof Booking] as string | undefined;
+                      const fileName = booking[`${docKey}_filename` as keyof Booking] as string | undefined;
+                      const rawStatus = booking[`${docKey}_status` as keyof Booking] as string | undefined;
+                      const rawDocFlag = String(booking[`${docKey}_doc` as keyof Booking]);
 
-                  <a
-                    href={
-                      booking.latitude && booking.longitude
-                        ? `https://www.google.com/maps/dir/?api=1&destination=${booking.latitude},${booking.longitude}`
-                        : booking.map_link && booking.map_link.startsWith('http')
-                        ? booking.map_link
-                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.map_link || booking.site_name)}`
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95"
-                  >
-                    <Icons.Navigation size={15} /> {t.navGoogleMaps}
-                  </a>
+                      // Determine verification status
+                      const isVerified = rawStatus === 'verified' || rawDocFlag === 'verified';
+                      const hasFile = Boolean(fileUrl) || rawDocFlag === 'true';
+
+                      const docTitles: Record<string, string> = {
+                        layout: 'Layout Document (จำเป็น)',
+                        wiring: 'Wiring Document (จำเป็น)',
+                        precheck: 'Pre-check Document (จำเป็น)',
+                      };
+
+                      const handleToggleVerify = () => {
+                        if (!isAdmin || !onUpdateBooking) return;
+                        const nextVerified = !isVerified;
+                        const updated: Booking = {
+                          ...booking,
+                          [`${docKey}_status`]: nextVerified ? 'verified' : 'pending',
+                          [`${docKey}_doc`]: nextVerified ? 'verified' : (hasFile ? 'true' : 'false'),
+                        };
+                        onUpdateBooking(updated);
+                        setUploadToast(`ปรับสถานะเอกสาร ${docKey.toUpperCase()} เป็น: ${nextVerified ? 'ตรวจสอบแล้ว' : 'รอตรวจสอบ'}`);
+                        setTimeout(() => setUploadToast(null), 2500);
+                      };
+
+                      return (
+                        <div
+                          key={docKey}
+                          className={`p-3.5 rounded-2xl border transition-all ${
+                            isVerified
+                              ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs'
+                              : hasFile
+                              ? 'bg-amber-50/60 border-amber-300 shadow-2xs'
+                              : 'bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-slate-800">
+                                  {docTitles[docKey]}
+                                </span>
+                                {fileUrl && (
+                                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                                    <Icons.Cloud size={10} /> Google Drive
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Status label: รอตรวจสอบ vs ตรวจสอบแล้ว */}
+                              <div className="flex items-center gap-2 mt-1">
+                                {hasFile ? (
+                                  isVerified ? (
+                                    <span className="text-[11px] bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                                      ✓ ตรวจสอบแล้ว
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs animate-pulse">
+                                      ⏳ รอตรวจสอบ
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-[10px] text-red-500 font-bold">
+                                    ❌ ยังไม่ได้แนบไฟล์
+                                  </span>
+                                )}
+
+                                {fileName && (
+                                  <span className="text-[10px] text-slate-600 font-medium truncate max-w-[160px]" title={fileName}>
+                                    📎 {fileName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {fileUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => onViewFile(fileUrl)}
+                                  className="text-[11px] bg-white text-blue-600 border border-blue-300 font-bold px-2.5 py-1.5 rounded-xl hover:bg-blue-50 shadow-2xs flex items-center gap-1"
+                                >
+                                  <Icons.Eye size={12} /> ดูเอกสาร
+                                </button>
+                              )}
+
+                              {/* Admin Document Verification Button */}
+                              {isAdmin && hasFile && (
+                                <button
+                                  type="button"
+                                  onClick={handleToggleVerify}
+                                  className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl shadow-2xs transition-colors flex items-center gap-1 ${
+                                    isVerified
+                                      ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
+                                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                  }`}
+                                  title="กดเพื่อสลับสถานะ ตรวจสอบแล้ว / รอตรวจสอบ"
+                                >
+                                  <Icons.CheckCircle size={12} />
+                                  {isVerified ? 'ตรวจสอบแล้ว' : 'ยืนยันตรวจผ่าน'}
+                                </button>
+                              )}
+
+                              {canUploadDocs && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setGdriveInputTarget(docKey);
+                                      setGdriveUrlInput(fileUrl?.startsWith('http') && !fileUrl.startsWith('data:') ? fileUrl : '');
+                                    }}
+                                    className="text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
+                                    title="ผูกลิงก์ Google Drive (15GB)"
+                                  >
+                                    <Icons.Cloud size={12} />
+                                    Drive
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openScannerFor(docKey)}
+                                    className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
+                                    title="สแกนด้วยกล้องหน้า"
+                                  >
+                                    <Icons.Camera size={12} />
+                                    สแกน
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => triggerFileInput(docKey)}
+                                    className="text-[11px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2 py-1.5 rounded-xl"
+                                    title="อัปโหลดไฟล์ PDF หรือรูปภาพใหม่"
+                                  >
+                                    <Icons.Upload size={12} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
-            </>
-          )}
+
+                {/* Site Conditions Photos */}
+                <div className="pt-3 border-t border-slate-200">
+                  <div className="flex justify-between items-center mb-2.5">
+                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Icons.Image /> รูปภาพสภาพหน้างาน 6 จุด
+                    </h4>
+                    {canUploadDocs && (
+                      <button
+                        type="button"
+                        onClick={() => openScannerFor('site_cond_1')}
+                        className="text-[11px] text-indigo-600 font-bold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1"
+                      >
+                        <Icons.Camera size={13} /> ถ่ายสภาพหน้างาน
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {condLabels.map((cond) => {
+                      const urls = booking[cond.key];
+                      const count = urls ? urls.split(',').filter(Boolean).length : 0;
+
+                      return (
+                        <div
+                          key={cond.key}
+                          className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex flex-col justify-between gap-1.5"
+                        >
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-700 block truncate leading-tight">
+                              {cond.label}
+                            </span>
+                            <span className="text-[9px] text-slate-400 block mt-0.5">
+                              {count > 0 ? `${count} รูปภาพ` : 'ยังไม่มีรูป'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 pt-1 border-t border-slate-200/60">
+                            {count > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => onViewFile(urls!.split(',')[0])}
+                                className="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md font-bold hover:bg-indigo-100 flex-1 text-center"
+                              >
+                                ดูรูป
+                              </button>
+                            )}
+                            {canUploadDocs && (
+                              <button
+                                type="button"
+                                onClick={() => openScannerFor(cond.docKey)}
+                                className="text-[9px] bg-slate-800 hover:bg-slate-900 text-white px-2 py-1 rounded-md font-bold flex-1 flex items-center justify-center gap-0.5"
+                              >
+                                <Icons.Camera size={11} /> ถ่าย
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* JOB DIRECT LINK & SHARING (Optimized & Clean) */}
+                <div className="pt-3 border-t border-slate-200">
+                  <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white p-3.5 rounded-2xl shadow-md border border-slate-700">
+                    <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                          <Icons.Check size={16} />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold leading-tight flex items-center gap-1.5">
+                            {lang === 'th' ? 'ลิงก์ตรงและข้อมูลงาน' : 'Job Direct Link & Quick Actions'}
+                          </h4>
+                          <span className="text-[10px] text-slate-400 block font-mono">
+                            ID: <span className="text-blue-300">{booking.id}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] bg-blue-500/20 text-blue-300 font-bold px-2 py-0.5 rounded-md border border-blue-400/30">
+                        Cloud Synced
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <p className="text-[11px] text-slate-300 leading-snug">
+                        {lang === 'th'
+                          ? 'คัดลอกลิงก์ตรงของคิวงานนี้เพื่อส่งต่อให้ผู้ตรวจหรือทีมงานเปิดดูรายละเอียดได้ทันที'
+                          : 'Copy the direct URL of this job to quickly share with inspectors or site team.'}
+                      </p>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleCopyJobLink}
+                          className="flex-1 sm:flex-initial text-xs px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                        >
+                          <Icons.Copy size={13} /> {copiedLink ? t.copied : t.copyJobLink}
+                        </button>
+
+                        {booking.tel && (
+                          <a
+                            href={`tel:${booking.tel}`}
+                            className="text-xs px-3 py-2 bg-white/10 hover:bg-white/20 text-slate-200 font-bold rounded-xl border border-white/10 flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                            title="โทรหาเบอร์หน้างาน"
+                          >
+                            <Icons.Phone size={13} className="text-emerald-400" /> โทร
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* GOOGLE MAPS PIN & DIRECT NAVIGATION (FEATURE 2) */}
+                {(booking.map_link || (booking.latitude && booking.longitude)) && (
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Icons.MapPin className="text-red-500" /> ตำแหน่งและการนำทาง Google Maps
+                      </h4>
+                      {booking.latitude && booking.longitude && (
+                        <span className="text-[10px] font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-600">
+                          {booking.latitude.toFixed(4)}, {booking.longitude.toFixed(4)}
+                        </span>
+                      )}
+                    </div>
+
+                    {booking.address_detail && (
+                      <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                        📍 {booking.address_detail}
+                      </p>
+                    )}
+
+                    <a
+                      href={
+                        booking.latitude && booking.longitude
+                          ? `https://www.google.com/maps/dir/?api=1&destination=${booking.latitude},${booking.longitude}`
+                          : booking.map_link && booking.map_link.startsWith('http')
+                          ? booking.map_link
+                          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.map_link || booking.site_name)}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95"
+                    >
+                      <Icons.Navigation size={15} /> {t.navGoogleMaps}
+                    </a>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
+        {/* Footer - FIXED BOTTOM */}
         {canManage && (
-          <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col gap-2">
+          <div className="p-5 border-t border-slate-100 bg-slate-50 flex flex-col gap-2 flex-shrink-0 z-20">
             <button
               onClick={onEdit}
               className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl border border-blue-200 flex items-center justify-center gap-2 text-xs transition-colors"
