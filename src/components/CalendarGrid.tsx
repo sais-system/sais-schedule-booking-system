@@ -199,6 +199,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                     className={cellClassName}
                     onClick={() => {
                       if (!user) return setAlertMsg('กรุณาเข้าสู่ระบบก่อนทำรายการจองคิวตรวจครับ');
+                      if (user.role === 'viewer') return setAlertMsg('บัญชีของคุณมีสิทธิ์เข้าชมเท่านั้น ไม่สามารถเพิ่มคิวงานได้');
                       if (!isAdmin && isBlockedForNormalUser) return;
 
                       const todayLocalString = getLocalDateString(getThaiTime());
