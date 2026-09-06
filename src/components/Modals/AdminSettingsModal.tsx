@@ -94,6 +94,16 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
     setInspectorList(updated);
   };
 
+  const handleMoveInspector = (index: number, direction: 'up' | 'down') => {
+    const updated = [...inspectorList];
+    if (direction === 'up' && index > 0) {
+      [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    } else if (direction === 'down' && index < updated.length - 1) {
+      [updated[index + 1], updated[index]] = [updated[index], updated[index + 1]];
+    }
+    setInspectorList(updated);
+  };
+
   return (
     <div className="modal-card w-full max-w-2xl bg-white rounded-3xl shadow-2xl animate-pop relative flex flex-col max-h-[92vh] overflow-hidden">
       {/* Header */}
@@ -620,14 +630,34 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                     />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveInspector(ins.name)}
-                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                    title="ลบผู้ตรวจนี้"
-                  >
-                    <Icons.Trash />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveInspector(idx, 'up')}
+                      disabled={idx === 0}
+                      className="p-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors font-bold"
+                      title="เลื่อนลำดับขึ้น"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveInspector(idx, 'down')}
+                      disabled={idx === inspectorList.length - 1}
+                      className="p-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors font-bold"
+                      title="เลื่อนลำดับลง"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveInspector(ins.name)}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-1"
+                      title="ลบผู้ตรวจนี้"
+                    >
+                      <Icons.Trash />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
