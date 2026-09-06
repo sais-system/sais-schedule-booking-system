@@ -51,19 +51,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   const [gdriveInputTarget, setGdriveInputTarget] = useState<DocumentTypeKey | null>(null);
   const [gdriveUrlInput, setGdriveUrlInput] = useState('');
 
-  const [copiedLink, setCopiedLink] = useState(false);
-
-  // Generate shareable direct link to this specific job
-  const jobShareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}${window.location.pathname}?bookingId=${booking.id}`
-    : `https://sais.app/?bookingId=${booking.id}`;
-
-  const handleCopyJobLink = () => {
-    navigator.clipboard.writeText(jobShareUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
   const isSpecial =
     String(booking.job_type).includes('leave') ||
     String(booking.job_type).includes('event') ||
@@ -121,19 +108,16 @@ export const DetailModal: React.FC<DetailModalProps> = ({
     setTimeout(() => setUploadToast(null), 3000);
   };
 
-  // Open camera scanner for a specific document
   const openScannerFor = (docKey: DocumentTypeKey) => {
     setScannerTargetDoc(docKey);
     setScannerOpen(true);
   };
 
-  // Trigger file upload for a specific document
   const triggerFileInput = (docKey: DocumentTypeKey) => {
     setUploadTargetKey(docKey);
     fileInputRef.current?.click();
   };
 
-  // Handle direct file input selection (PDF and Images auto uploaded to Drive)
   const handleDirectFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -487,59 +471,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                         </div>
                       );
                     })}
-                  </div>
-                </div>
-
-                {/* JOB DIRECT LINK & SHARING (Optimized & Clean) */}
-                <div className="pt-3 border-t border-slate-200">
-                  <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white p-3.5 rounded-2xl shadow-md border border-slate-700">
-                    <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-white/10">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
-                          <Icons.Check size={16} />
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold leading-tight flex items-center gap-1.5">
-                            {lang === 'th' ? 'ลิงก์ตรงและข้อมูลงาน' : 'Job Direct Link & Quick Actions'}
-                          </h4>
-                          <span className="text-[10px] text-slate-400 block font-mono">
-                            ID: <span className="text-blue-300">{booking.id}</span>
-                          </span>
-                        </div>
-                      </div>
-
-                      <span className="text-[10px] bg-blue-500/20 text-blue-300 font-bold px-2 py-0.5 rounded-md border border-blue-400/30">
-                        Cloud Synced
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                      <p className="text-[11px] text-slate-300 leading-snug">
-                        {lang === 'th'
-                          ? 'คัดลอกลิงก์ตรงของคิวงานนี้เพื่อส่งต่อให้ผู้ตรวจหรือทีมงานเปิดดูรายละเอียดได้ทันที'
-                          : 'Copy the direct URL of this job to quickly share with inspectors or site team.'}
-                      </p>
-
-                      <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                        <button
-                          type="button"
-                          onClick={handleCopyJobLink}
-                          className="flex-1 sm:flex-initial text-xs px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95"
-                        >
-                          <Icons.Copy size={13} /> {copiedLink ? t.copied : t.copyJobLink}
-                        </button>
-
-                        {booking.tel && (
-                          <a
-                            href={`tel:${booking.tel}`}
-                            className="text-xs px-3 py-2 bg-white/10 hover:bg-white/20 text-slate-200 font-bold rounded-xl border border-white/10 flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                            title="โทรหาเบอร์หน้างาน"
-                          >
-                            <Icons.Phone size={13} className="text-emerald-400" /> โทร
-                          </a>
-                        )}
-                      </div>
-                    </div>
                   </div>
                 </div>
 
