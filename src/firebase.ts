@@ -23,12 +23,12 @@ import {
 // Firebase configuration from environment or fallback default project config
 const env = (import.meta as any).env || {};
 const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY || 'AIzaSyA_SAIS_SYSTEM_KEY_MOCK_CLOUD_DB',
+  apiKey: env.VITE_FIREBASE_API_KEY || 'AIzaSyBOqWqVBTLdr2se2Ktc5SwjXglb55n69go',
   authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || 'sais-schedule-booking.firebaseapp.com',
   projectId: env.VITE_FIREBASE_PROJECT_ID || 'sais-schedule-booking',
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || 'sais-schedule-booking.appspot.com',
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '923348657053',
-  appId: env.VITE_FIREBASE_APP_ID || '1:923348657053:web:dca3dc60b02845c1',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || 'sais-schedule-booking.firebasestorage.app',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '908596453130',
+  appId: env.VITE_FIREBASE_APP_ID || '1:908596453130:web:e34a5769730672a1d6a4f3',
 };
 
 // Initialize Firebase App instance safely
