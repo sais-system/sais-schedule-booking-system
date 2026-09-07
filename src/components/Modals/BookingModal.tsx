@@ -698,7 +698,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                             </span>
                             {currentUrl && (
                               <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
-                                Google Drive
+                                แนบแล้ว
                               </span>
                             )}
                           </div>

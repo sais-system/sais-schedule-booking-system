@@ -86,6 +86,7 @@ export interface SystemLog {
 
 export interface WebSettings {
   appName?: string;
+  customTexts?: Record<string, string>;
   headerBg?: string;
   headerText?: string;
   appBg?: string;

@@ -4,7 +4,7 @@ import { Icons } from '../Icons';
 
 interface AuthModalProps {
   users: User[];
-  onLogin: (user: User) => void;
+  onLogin: (user: User, rememberMe?: boolean) => void;
   onRegister: (newUser: User) => void;
   onResetPassword: (fullName: string, phone: string, newPass: string) => boolean;
   onClose?: () => void;
@@ -25,6 +25,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   // Form states
   const [username, setUsername] = useState('');
@@ -56,7 +57,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      onLogin(found);
+      onLogin(found, rememberMe);
       setSuccessModal(`ยินดีต้อนรับคุณ ${found.full_name || found.username}`);
       if (onClose) onClose();
     } else if (mode === 'register') {
@@ -199,7 +200,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     placeholder="เช่น สมชาย ใจดี"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full text-sm p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                    className="w-full text-sm p-3 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
 
@@ -212,7 +213,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       placeholder="NI, MOD, FQE"
                       value={department}
                       onChange={(e) => setDepartment(e.target.value)}
-                      className="w-full text-sm p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500"
+                      className="w-full text-sm p-3 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 placeholder:text-slate-400 placeholder:font-normal"
                     />
                   </div>
                   <div>
@@ -223,7 +224,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       placeholder="PE, PM, Tech"
                       value={position}
                       onChange={(e) => setPosition(e.target.value)}
-                      className="w-full text-sm p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500"
+                      className="w-full text-sm p-3 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 placeholder:text-slate-400 placeholder:font-normal"
                     />
                   </div>
                 </div>
@@ -239,7 +240,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     maxLength={10}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                    className="w-full text-sm p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500"
+                    className="w-full text-sm p-3 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </>
@@ -255,7 +256,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     placeholder="ระบุชื่อ นามสกุล"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full text-sm p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500"
+                    className="w-full text-sm p-3 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
                 <div>
@@ -267,7 +268,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     maxLength={10}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                    className="w-full text-sm p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500"
+                    className="w-full text-sm p-3 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </>
@@ -284,7 +285,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   placeholder="เช่น jirapong, somchai"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full text-sm p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  className="w-full text-sm p-3 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 placeholder:text-slate-400 placeholder:font-normal"
                 />
               </div>
             )}
@@ -299,7 +300,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 placeholder="รหัสผ่าน"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full text-sm p-3 pr-11 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                className="w-full text-sm p-3 pr-11 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 placeholder:text-slate-400 placeholder:font-normal"
               />
               <button
                 type="button"
@@ -309,6 +310,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {showPassword ? <Icons.EyeOff size={18} /> : <Icons.Eye size={18} />}
               </button>
             </div>
+
+            {/* Remember Me Checkbox (24 Hours Persistence in LocalStorage) */}
+            {mode === 'login' && (
+              <div className="flex items-center justify-between py-1 px-0.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-800 font-semibold hover:text-slate-950">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded text-red-600 focus:ring-red-500 border-slate-300 accent-red-600 cursor-pointer"
+                  />
+                  <span>จดจำการเข้าสู่ระบบ (จำไว้ 24 ชม.)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setMode('forgot')}
+                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-bold cursor-pointer"
+                >
+                  ลืมรหัสผ่าน?
+                </button>
+              </div>
+            )}
 
             {(mode === 'register' || mode === 'forgot') && (
               <div>
@@ -321,7 +344,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   placeholder="พิมพ์ยืนยันรหัสผ่านอีกครั้ง"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full text-sm p-3 rounded-xl border border-slate-300 font-medium outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  className="w-full text-sm p-3 rounded-xl border border-slate-300 font-bold text-slate-950 text-black bg-white outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 placeholder:text-slate-400 placeholder:font-normal"
                 />
               </div>
             )}

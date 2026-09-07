@@ -120,8 +120,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth || 375 : 375;
   const baseColWidth = isSingleMobileView
     ? Math.max(260, screenWidth - 65)
-    : (settings?.gridColWidth ? Number(settings.gridColWidth) : Math.floor((screenWidth - 50) / 3));
-  const colWidthPx = Math.floor(baseColWidth * columnZoom);
+    : (settings?.gridColWidth ? Number(settings.gridColWidth) : Math.max(120, Math.floor((screenWidth - 50) / 3)));
+  const colWidthPx = Math.max(110, Math.floor(baseColWidth * columnZoom));
   const gridCols = isExporting
     ? `65px repeat(${numInspectors}, 300px)`
     : isSingleMobileView

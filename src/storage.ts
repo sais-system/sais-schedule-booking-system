@@ -8,39 +8,68 @@ const STORAGE_KEYS = {
   SETTINGS: 'sais_settings_v2',
   NOTIFS: 'sais_notifs_v2',
   LOGS: 'sais_logs_v2',
-  CURRENT_USER: 'sais_user',
-  SESSION_TIME: 'sais_session_time',
+  REMEMBER_USER: 'sais_remember_user',
+  REMEMBER_TIME: 'sais_remember_time',
+  SESSION_USER: 'sais_session_user',
 };
+
+// 24 hours in milliseconds
+const REMEMBER_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 export const getStoredUser = (): User | null => {
   try {
-    // Purge any legacy permanent localStorage user credentials
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-    localStorage.removeItem(STORAGE_KEYS.SESSION_TIME);
+    // 1. Check if user selected 'Remember Me' (valid for 24 hours)
+    const rememberUserStr = localStorage.getItem(STORAGE_KEYS.REMEMBER_USER);
+    const rememberTimeStr = localStorage.getItem(STORAGE_KEYS.REMEMBER_TIME);
 
-    // Only read from temporary browser sessionStorage
-    const saved = sessionStorage.getItem('sais_session_user');
-    if (saved) {
-      return JSON.parse(saved);
+    if (rememberUserStr && rememberTimeStr) {
+      const loginTime = Number(rememberTimeStr);
+      const now = Date.now();
+
+      if (!isNaN(loginTime) && now - loginTime < REMEMBER_EXPIRY_MS) {
+        // Valid login within 24 hours: auto login and sync to current session
+        const user = JSON.parse(rememberUserStr);
+        sessionStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(user));
+        return user;
+      } else {
+        // Expired after 24 hours: purge credentials to require password entry
+        localStorage.removeItem(STORAGE_KEYS.REMEMBER_USER);
+        localStorage.removeItem(STORAGE_KEYS.REMEMBER_TIME);
+        sessionStorage.removeItem(STORAGE_KEYS.SESSION_USER);
+        return null;
+      }
     }
-    // Return null to enforce authentication requirement before accessing the app
+
+    // 2. Otherwise, check current browser session
+    const sessionSaved = sessionStorage.getItem(STORAGE_KEYS.SESSION_USER);
+    if (sessionSaved) {
+      return JSON.parse(sessionSaved);
+    }
+
     return null;
   } catch (e) {
     return null;
   }
 };
 
-export const setStoredUser = (user: User | null) => {
+export const setStoredUser = (user: User | null, rememberMe: boolean = false) => {
   try {
-    // NEVER save login session in permanent localStorage
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-    localStorage.removeItem(STORAGE_KEYS.SESSION_TIME);
-
     if (user) {
-      sessionStorage.setItem('sais_session_user', JSON.stringify(user));
+      sessionStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(user));
+      if (rememberMe) {
+        // Persist user and current timestamp in localStorage for 24 hours
+        localStorage.setItem(STORAGE_KEYS.REMEMBER_USER, JSON.stringify(user));
+        localStorage.setItem(STORAGE_KEYS.REMEMBER_TIME, Date.now().toString());
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.REMEMBER_USER);
+        localStorage.removeItem(STORAGE_KEYS.REMEMBER_TIME);
+      }
     } else {
-      sessionStorage.removeItem('sais_session_user');
+      // Logout: purge from both sessionStorage and localStorage
+      sessionStorage.removeItem(STORAGE_KEYS.SESSION_USER);
       sessionStorage.clear();
+      localStorage.removeItem(STORAGE_KEYS.REMEMBER_USER);
+      localStorage.removeItem(STORAGE_KEYS.REMEMBER_TIME);
     }
   } catch (e) {
     console.error('Failed to set stored user', e);

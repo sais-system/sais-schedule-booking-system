@@ -48,8 +48,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   const [uploadToast, setUploadToast] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetKey, setUploadTargetKey] = useState<DocumentTypeKey>('layout');
-  const [gdriveInputTarget, setGdriveInputTarget] = useState<DocumentTypeKey | null>(null);
-  const [gdriveUrlInput, setGdriveUrlInput] = useState('');
 
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -330,11 +328,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                               <span className="text-xs font-bold text-slate-800">
                                 {docTitles[docKey]}
                               </span>
-                              {fileUrl && (
-                                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                                  <Icons.Cloud size={10} /> Google Drive
-                                </span>
-                              )}
                             </div>
 
                             {/* Status label: รอตรวจสอบ vs ตรวจสอบแล้ว */}
@@ -395,20 +388,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                               <>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setGdriveInputTarget(docKey);
-                                    setGdriveUrlInput(fileUrl?.startsWith('http') && !fileUrl.startsWith('data:') ? fileUrl : '');
-                                  }}
-                                  className="text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
-                                  title="ผูกลิงก์ Google Drive (15GB)"
-                                >
-                                  <Icons.Cloud size={12} />
-                                  Drive
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => openScannerFor(docKey)}
-                                  className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
+                                  className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
                                   title="สแกนด้วยกล้องหน้า"
                                 >
                                   <Icons.Camera size={12} />
@@ -417,10 +398,10 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => triggerFileInput(docKey)}
-                                  className="text-[11px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2 py-1.5 rounded-xl"
+                                  className="text-[11px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2.5 py-1.5 rounded-xl"
                                   title="อัปโหลดไฟล์ PDF หรือรูปภาพใหม่"
                                 >
-                                  <Icons.Upload size={12} />
+                                  <Icons.Upload size={12} /> แนบไฟล์
                                 </button>
                               </>
                             )}
@@ -615,66 +596,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
         />
       )}
 
-      {/* Google Drive Link Input Dialog */}
-      {gdriveInputTarget && (
-        <div className="backdrop z-[800] p-4 flex items-center justify-center">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-slate-200 animate-pop space-y-3.5">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Icons.Cloud className="text-emerald-600" size={16} /> ผูกลิงก์ Google Drive (15GB)
-              </h4>
-              <button
-                type="button"
-                onClick={() => setGdriveInputTarget(null)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <Icons.X size={16} />
-              </button>
-            </div>
-
-            <p className="text-[11px] text-slate-600 leading-relaxed">
-              วางลิงก์เอกสารจาก Google Drive หรือแชร์โฟลเดอร์สำหรับเอกสารนี้ เพื่อประหยัดพื้นที่จัดเก็บและเปิดดูเอกสาร PDF ความละเอียดสูงได้โดยตรง
-            </p>
-
-            <div>
-              <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                Google Drive Shared URL:
-              </label>
-              <input
-                type="url"
-                value={gdriveUrlInput}
-                onChange={(e) => setGdriveUrlInput(e.target.value)}
-                placeholder="https://drive.google.com/file/d/... หรือ folder"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setGdriveInputTarget(null)}
-                className="flex-1 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (gdriveUrlInput.trim()) {
-                    handleSaveScannedDocument(gdriveInputTarget, gdriveUrlInput.trim());
-                    setUploadToast('บันทึกลิงก์ Google Drive สำเร็จ');
-                    setTimeout(() => setUploadToast(null), 2500);
-                  }
-                  setGdriveInputTarget(null);
-                }}
-                className="flex-1 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 shadow-xs"
-              >
-                บันทึกลิงก์
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

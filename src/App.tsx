@@ -69,6 +69,26 @@ export default function App() {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [showSaisDatabases, setShowSaisDatabases] = useState(false);
   const [saisDatabasesTab, setSaisDatabasesTab] = useState<'databases' | 'dashboard'>('databases');
+  const [isNavVisible, setIsNavVisible] = useState(true);
+
+  // Auto-hide bottom navigation on scroll
+  useEffect(() => {
+    let lastY = window.scrollY;
+    const handleScroll = () => {
+      const currentY = window.scrollY || document.documentElement.scrollTop;
+      if (currentY > lastY + 25 && currentY > 50) {
+        // Scrolling down: hide nav
+        setIsNavVisible(false);
+      } else if (currentY < lastY - 15) {
+        // Scrolling up: show nav
+        setIsNavVisible(true);
+      }
+      lastY = currentY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Calendar & navigation states
   const [currentDate, setCurrentDate] = useState<Date>(getThaiTime());
@@ -637,10 +657,10 @@ export default function App() {
   };
 
   // Auth functions
-  const handleLogin = (u: User) => {
+  const handleLogin = (u: User, rememberMe: boolean = false) => {
     setCurrentUser(u);
-    setStoredUser(u);
-    logSystem('LOGIN', `ผู้ใช้ ${u.username} เข้าสู่ระบบ`);
+    setStoredUser(u, rememberMe);
+    logSystem('LOGIN', `ผู้ใช้ ${u.username} เข้าสู่ระบบ${rememberMe ? ' (จดจำการเข้าสู่ระบบ 24 ชม.)' : ''}`);
   };
 
   const handleRegister = (u: User) => {
@@ -789,48 +809,6 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 relative shrink-0">
-          {/* SAIS DATABASE & DASHBOARD Launcher */}
-          <div className="flex items-center bg-gradient-to-r from-red-600 to-rose-600 rounded-lg p-0.5 shadow-sm border border-red-500/60 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setSaisDatabasesTab('databases');
-                setShowSaisDatabases(true);
-              }}
-              className="px-2 py-1 sm:px-2.5 sm:py-1 rounded-md text-white hover:bg-white/20 text-xs font-black flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-              title="เปิดฐานข้อมูล SAIS DATABASE (Pending Records)"
-            >
-              <Icons.Database size={13} />
-              <span className="hidden sm:inline">DATABASE</span>
-              <span className="sm:hidden">DB</span>
-            </button>
-            <div className="w-[1px] h-3.5 bg-white/30 my-auto"></div>
-            <button
-              type="button"
-              onClick={() => {
-                setSaisDatabasesTab('dashboard');
-                setShowSaisDatabases(true);
-              }}
-              className="px-2 py-1 sm:px-2.5 sm:py-1 rounded-md text-white hover:bg-white/20 text-xs font-black flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-              title="เปิดแดชบอร์ด SAIS DASHBOARD (Analytics & Charts)"
-            >
-              <Icons.Chart size={13} />
-              <span className="hidden sm:inline">DASHBOARD</span>
-              <span className="sm:hidden">DASH</span>
-            </button>
-          </div>
-
-          {/* Cloud & Share Direct URL Button */}
-          <button
-            type="button"
-            onClick={() => setCloudShareOpen(true)}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all active:scale-95 border border-blue-400/40 shrink-0"
-            title={lang === 'th' ? 'ศูนย์แชร์ลิงก์ & คลาวด์อัตโนมัติ' : 'Live Cloud & Share URL'}
-          >
-            <Icons.Cloud size={14} />
-            <span className="hidden md:inline">{lang === 'th' ? 'แชร์ลิงก์' : 'Share'}</span>
-          </button>
-
           {/* Tutorial Simulation & Handbook Button */}
           <button
             type="button"
@@ -861,57 +839,6 @@ export default function App() {
                   v2.0 Cloud
                 </span>
               </h4>
-
-              {/* Cloud Share & Live URL Launcher in Settings */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSettings(false);
-                  setCloudShareOpen(true);
-                }}
-                className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 text-xs font-bold rounded-xl flex items-center justify-between gap-1.5 mb-2 transition-colors"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Icons.Cloud size={15} className="text-blue-600" />
-                  {lang === 'th' ? 'ศูนย์แชร์ลิงก์ & คลาวด์' : 'Live Cloud & Share URL'}
-                </span>
-                <span className="text-[10px] bg-blue-200/80 px-1.5 py-0.5 rounded text-blue-800">
-                  เปิดดู
-                </span>
-              </button>
-
-              {/* Direct Download ZIP in Settings */}
-              <a
-                href="/sais-schedule-booking-source.zip"
-                download="sais-schedule-booking-source.zip"
-                onClick={() => setShowSettings(false)}
-                className="w-full py-2 px-3 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 text-xs font-bold rounded-xl flex items-center justify-between gap-1.5 mb-2.5 transition-colors"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Icons.Download size={15} className="text-purple-600" />
-                  {lang === 'th' ? 'ดาวน์โหลดโค้ด (.ZIP)' : 'Download Code (.ZIP)'}
-                </span>
-                <span className="text-[10px] bg-purple-200/80 px-1.5 py-0.5 rounded text-purple-800 font-mono">
-                  .ZIP
-                </span>
-              </a>
-
-              {/* Tutorial Quick Launcher in Settings */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSettings(false);
-                  setTutorialOpen(true);
-                }}
-                className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold rounded-xl flex items-center justify-between gap-1.5 mb-2.5 transition-colors"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Icons.GraduationCap size={15} className="text-amber-600" /> {t.tutorialModalTitle}
-                </span>
-                <span className="text-[10px] bg-amber-200/80 px-1.5 py-0.5 rounded text-amber-800">
-                  เปิดดู
-                </span>
-              </button>
 
               {/* Cloud Sync Status in Menu */}
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 mb-3 space-y-1.5">
@@ -2058,18 +1985,24 @@ export default function App() {
         )}
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="bottom-nav">
+      {/* Bottom Navigation (Auto-Hide on scroll) */}
+      <nav className={`bottom-nav ${!isNavVisible ? 'nav-hidden' : ''}`}>
         <div
           className={`nav-item ${currentView === 'calendar' ? 'active' : ''}`}
-          onClick={() => setCurrentView('calendar')}
+          onClick={() => {
+            setCurrentView('calendar');
+            setIsNavVisible(true);
+          }}
         >
           <Icons.Home />
           <span>ปฏิทิน</span>
         </div>
         <div
           className={`nav-item ${currentView === 'search' ? 'active' : ''}`}
-          onClick={() => setCurrentView('search')}
+          onClick={() => {
+            setCurrentView('search');
+            setIsNavVisible(true);
+          }}
         >
           <Icons.Search />
           <span>ค้นหา</span>
@@ -2077,7 +2010,10 @@ export default function App() {
         {isAdmin && (
           <div
             className={`nav-item ${currentView === 'documents' ? 'active' : ''}`}
-            onClick={() => setCurrentView('documents')}
+            onClick={() => {
+              setCurrentView('documents');
+              setIsNavVisible(true);
+            }}
           >
             <Icons.FileCheck />
             <span>ตรวจเอกสาร</span>
@@ -2086,7 +2022,10 @@ export default function App() {
         {currentUser && !isAdmin && currentUser.role !== 'viewer' && (
           <div
             className={`nav-item ${currentView === 'my_bookings' ? 'active' : ''}`}
-            onClick={() => setCurrentView('my_bookings')}
+            onClick={() => {
+              setCurrentView('my_bookings');
+              setIsNavVisible(true);
+            }}
           >
             <Icons.List />
             <span>งานฉัน</span>
@@ -2120,6 +2059,7 @@ export default function App() {
             onClick={() => {
               setCurrentView('admin');
               setAdminTab('menu');
+              setIsNavVisible(true);
             }}
           >
             <Icons.Shield />
@@ -2132,7 +2072,29 @@ export default function App() {
             <span>ออกระบบ</span>
           </div>
         )}
+        {/* Quick minimize toggle button */}
+        <div
+          className="nav-item text-slate-400 hover:text-slate-600 cursor-pointer hidden xs:flex"
+          onClick={() => setIsNavVisible(false)}
+          title="ย่อซ่อนแถบเมนู (Auto Hide)"
+        >
+          <Icons.ChevronDown size={18} />
+          <span className="text-[9px]">ซ่อน</span>
+        </div>
       </nav>
+
+      {/* Floating Reveal Button when Nav is Auto-Hidden */}
+      {!isNavVisible && (
+        <button
+          type="button"
+          onClick={() => setIsNavVisible(true)}
+          className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[995] bg-slate-900/90 hover:bg-slate-900 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-2xl border border-slate-700/80 backdrop-blur-md flex items-center gap-1.5 transition-all animate-pop cursor-pointer active:scale-95"
+          title="แตะเพื่อแสดงแถบเมนูนำทาง"
+        >
+          <Icons.ChevronUp size={14} className="text-red-500 animate-bounce" />
+          <span>แสดงเมนู</span>
+        </button>
+      )}
 
       {/* MODALS */}
       {modal?.type === 'booking' && (
