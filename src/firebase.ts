@@ -20,9 +20,9 @@ import {
   generateDefaultBookings,
 } from './mockData';
 
-// Firebase configuration from environment or fallback default project config
+// Firebase official production configuration provided by user
 const env = (import.meta as any).env || {};
-const firebaseConfig = {
+export const PRODUCTION_FIREBASE_CONFIG = {
   apiKey: env.VITE_FIREBASE_API_KEY || 'AIzaSyBOqWqVBTLdr2se2Ktc5SwjXglb55n69go',
   authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || 'sais-schedule-booking.firebaseapp.com',
   projectId: env.VITE_FIREBASE_PROJECT_ID || 'sais-schedule-booking',
@@ -31,8 +31,8 @@ const firebaseConfig = {
   appId: env.VITE_FIREBASE_APP_ID || '1:908596453130:web:e34a5769730672a1d6a4f3',
 };
 
-// Initialize Firebase App instance safely
-export const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+// Initialize Firebase App instance safely with production config
+export const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(PRODUCTION_FIREBASE_CONFIG);
 
 // Initialize Cloud Firestore database instance
 export const firestoreDb = getFirestore(firebaseApp);
@@ -112,6 +112,8 @@ export const subscribeFirebaseInspectors = (callback: (inspectors: Inspector[]) 
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data() as Inspector);
         });
+        // Always preserve explicit order
+        list.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
         callback(list);
       }
     },
@@ -176,27 +178,51 @@ export const firestoreDeleteBooking = async (bookingId: string): Promise<void> =
 
 export const firestoreSaveInspectors = async (inspectors: Inspector[]): Promise<void> => {
   try {
+    updateStatus('syncing');
+    const existingSnaps = await getDocs(collection(firestoreDb, COLLECTIONS.INSPECTORS));
+    const currentDocIds = new Set(
+      inspectors.map((ins) => ins.name.replace(/[^\w\u0E00-\u0E7F]/g, '_'))
+    );
     const batch = writeBatch(firestoreDb);
-    inspectors.forEach((ins) => {
+    // Delete removed inspectors
+    existingSnaps.forEach((d) => {
+      if (!currentDocIds.has(d.id)) {
+        batch.delete(d.ref);
+      }
+    });
+    // Set current inspectors with order
+    inspectors.forEach((ins, idx) => {
       const docRef = doc(firestoreDb, COLLECTIONS.INSPECTORS, ins.name.replace(/[^\w\u0E00-\u0E7F]/g, '_'));
-      batch.set(docRef, ins, { merge: true });
+      batch.set(docRef, { ...ins, order: ins.order ?? idx + 1 }, { merge: true });
     });
     await batch.commit();
+    updateStatus('connected');
   } catch (err) {
     console.warn('Failed to batch save inspectors:', err);
+    updateStatus('offline');
   }
 };
 
 export const firestoreSaveUsers = async (users: User[]): Promise<void> => {
   try {
+    updateStatus('syncing');
+    const existingSnaps = await getDocs(collection(firestoreDb, COLLECTIONS.USERS));
+    const currentDocIds = new Set(users.map((u) => u.username));
     const batch = writeBatch(firestoreDb);
+    existingSnaps.forEach((d) => {
+      if (!currentDocIds.has(d.id)) {
+        batch.delete(d.ref);
+      }
+    });
     users.forEach((u) => {
       const docRef = doc(firestoreDb, COLLECTIONS.USERS, u.username);
       batch.set(docRef, u, { merge: true });
     });
     await batch.commit();
+    updateStatus('connected');
   } catch (err) {
     console.warn('Failed to batch save users:', err);
+    updateStatus('offline');
   }
 };
 
@@ -247,3 +273,65 @@ export const seedInitialCloudData = async (): Promise<void> => {
     updateStatus('offline');
   }
 };
+
+// Test live connection to Cloud Firestore
+export const testFirebaseConnection = async (): Promise<{ success: boolean; message: string }> => {
+  try {
+    updateStatus('syncing');
+    const testDocRef = doc(firestoreDb, COLLECTIONS.SETTINGS, 'connection_ping');
+    await setDoc(testDocRef, {
+      ping_at: new Date().toISOString(),
+      client_agent: 'SAIS Enterprise Pro Max',
+      projectId: PRODUCTION_FIREBASE_CONFIG.projectId,
+    });
+    updateStatus('connected');
+    return {
+      success: true,
+      message: `เชื่อมต่อกับ Cloud Firestore (Project: ${PRODUCTION_FIREBASE_CONFIG.projectId}) สำเร็จ 100%! สถานะออนไลน์เรียบร้อย`,
+    };
+  } catch (err: any) {
+    console.warn('Firebase ping connection error:', err);
+    updateStatus('offline');
+    return {
+      success: false,
+      message: `เชื่อมต่อไม่สำเร็จ: ${err?.message || 'โปรดตรวจสอบสิทธิ์การเข้าถึงหรือ Network'}`,
+    };
+  }
+};
+
+// Force upload full dataset to Cloud Firestore
+export const forceCloudSyncAll = async (
+  currentBookings: Booking[],
+  currentInspectors: Inspector[],
+  currentUsers: User[],
+  currentSettings: WebSettings
+): Promise<{ success: boolean; count: number; error?: string }> => {
+  try {
+    updateStatus('syncing');
+    let count = 0;
+    for (const b of currentBookings) {
+      await setDoc(doc(firestoreDb, COLLECTIONS.BOOKINGS, b.id), b, { merge: true });
+      count++;
+    }
+    for (const ins of currentInspectors) {
+      await setDoc(
+        doc(firestoreDb, COLLECTIONS.INSPECTORS, ins.name.replace(/[^\w\u0E00-\u0E7F]/g, '_')),
+        ins,
+        { merge: true }
+      );
+      count++;
+    }
+    for (const u of currentUsers) {
+      await setDoc(doc(firestoreDb, COLLECTIONS.USERS, u.username), u, { merge: true });
+      count++;
+    }
+    await setDoc(doc(firestoreDb, COLLECTIONS.SETTINGS, 'global_config'), currentSettings, { merge: true });
+    count++;
+    updateStatus('connected');
+    return { success: true, count };
+  } catch (e: any) {
+    console.error('Error in forceCloudSyncAll:', e);
+    return { success: false, count: 0, error: e?.message || 'Sync error' };
+  }
+};
+

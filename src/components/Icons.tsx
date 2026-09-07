@@ -56,9 +56,12 @@ import {
   Globe,
   ShieldCheck,
   Phone,
+  Lock,
 } from 'lucide-react';
 
 export const Icons = {
+  Lock: ({ size = 18, className }: { size?: number; className?: string } = {}) => <Lock size={size} className={className} />,
+  AlertCircle: ({ size = 18, className }: { size?: number; className?: string } = {}) => <AlertCircle size={size} className={className} />,
   Book: ({ size = 18, className }: { size?: number; className?: string } = {}) => <BookOpen size={size} className={className} />,
   BookOpen: ({ size = 18, className }: { size?: number; className?: string } = {}) => <BookOpen size={size} className={className} />,
   Camera: ({ size = 18, className }: { size?: number; className?: string } = {}) => <Camera size={size} className={className} />,

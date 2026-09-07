@@ -5,6 +5,7 @@ import { CameraScannerModal, DocumentTypeKey } from './CameraScannerModal';
 import { MapPickerModal } from './MapPickerModal';
 import { useTranslation } from '../../i18n';
 import { processDriveUpload } from '../../utils/googleDrive';
+import { getThaiTime, getLocalDateString } from '../../mockData';
 
 const PRODUCT_COLORS: Record<string, string> = {
   'ES1': 'bg-blue-500',
@@ -60,6 +61,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [unitNo, setUnitNo] = useState(data?.unit_no || '');
   const [siteName, setSiteName] = useState(data?.site_name || '');
   const [tel, setTel] = useState(data?.tel || '');
+  const [technicianName, setTechnicianName] = useState(data?.technician_name || '');
   const [mapLink, setMapLink] = useState(data?.map_link || '');
   const [latitude, setLatitude] = useState<number | undefined>(data?.latitude);
   const [longitude, setLongitude] = useState<number | undefined>(data?.longitude);
@@ -93,8 +95,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [showHelp, setShowHelp] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerTargetDoc, setScannerTargetDoc] = useState<DocumentTypeKey>('layout');
-  const [gdriveInputTarget, setGdriveInputTarget] = useState<string | null>(null);
-  const [gdriveUrlInput, setGdriveUrlInput] = useState('');
 
   // Check completeness of required documents
   const hasLayout = Boolean(docUrls.layout);
@@ -204,6 +204,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       return;
     }
 
+    const todayStr = getLocalDateString(getThaiTime());
+    if (!isAdmin && targetDate < todayStr) {
+      setAlertMsg(
+        '⚠️ ไม่สามารถลงจองคิวตรวจย้อนหลังได้ (ก่อนวันที่ปัจจุบัน)\nเฉพาะสิทธิ์ผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลงคิวตรวจย้อนหลัง เพื่อเป็นข้อมูลอัปเดตและบันทึกย้อนหลังได้ครับ'
+      );
+      return;
+    }
+
     // STRICT REQUIREMENT: All required documents must be uploaded completely to book!
     if (!hasAllRequiredDocs) {
       setAlertMsg(
@@ -223,6 +231,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       unit_no: unitNo,
       site_name: siteName,
       tel,
+      technician_name: technicianName.trim(),
       map_link: mapLink,
       latitude,
       longitude,
@@ -270,7 +279,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           <Icons.X />
         </button>
 
-        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center pr-14">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center pr-14 shrink-0">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <Icons.FileCheck />
             {isEditing ? 'แก้ไขคิวงานตรวจ' : 'จองคิวงานตรวจ SAIS'}
@@ -285,7 +294,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         </div>
 
         {showHelp ? (
-          <div className="p-5 overflow-y-auto max-h-[75vh] custom-scrollbar space-y-4">
+          <div className="p-4 sm:p-5 overflow-y-auto flex-1 custom-scrollbar space-y-4 -webkit-overflow-scrolling-touch">
             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
               <h4 className="font-bold text-blue-900 text-sm mb-2">📌 เงื่อนไขการจองคิวงาน</h4>
               <ul className="list-disc pl-4 space-y-1.5 text-xs text-blue-800 leading-relaxed">
@@ -294,7 +303,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   <b>เงื่อนไขสำคัญ:</b> ผู้จองจะต้องแนบเอกสาร <b>Layout</b>, <b>Wiring</b> และ{' '}
                   <b>Pre-check</b> ให้ครบถ้วนทั้ง 3 รายการ จึงจะสามารถกดยืนยันการจองคิวงานตรวจได้
                 </li>
-                <li>สามารถใช้ปุ่ม <b>"สแกนกล้องหน้า"</b> เพื่อถ่ายรูปเอกสารผ่านกล้องหน้า/กล้องหลังได้ทันที</li>
+                <li>สามารถใช้ปุ่ม <b>"สแกนกล้องหลัง HD"</b> เพื่อถ่ายรูปเอกสารและอัปโหลดขึ้นระบบได้ทันที</li>
                 <li>สามารถใส่พิกัดหรือลิงก์ Google Maps เพื่อให้ผู้ตรวจนำทางได้ทันที</li>
               </ul>
             </div>
@@ -307,7 +316,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </button>
           </div>
         ) : (
-          <div className="p-5 overflow-y-auto max-h-[75vh] custom-scrollbar">
+          <div className="p-4 sm:p-5 overflow-y-auto flex-1 custom-scrollbar -webkit-overflow-scrolling-touch pb-10">
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Mandatory Documents Checklist Warning Banner */}
               <div
@@ -539,9 +548,22 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 />
               </div>
 
-              {/* Tel & Google Maps Location Pinning (FEATURE 2) */}
+              {/* Technician, Tel & Google Maps Location Pinning */}
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">
+                      ช่างที่หน้างาน
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="เช่น ช่างสมหมาย, ช่างวิชัย"
+                      value={technicianName}
+                      onChange={(e) => setTechnicianName(e.target.value)}
+                      className="w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none font-bold text-slate-800 focus:border-blue-400"
+                    />
+                  </div>
+
                   <div>
                     <label className="text-xs font-bold text-slate-700 mb-1 block">
                       {t.siteTel} {!isAdmin && <span className="text-red-500">*</span>}
@@ -556,19 +578,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                       className="w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none font-bold text-slate-800 focus:border-blue-400"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 mb-1 block">
-                      {t.googleMapLink}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="ใส่ชื่อสถานที่ หรือ URL พิกัด Google Maps"
-                      value={mapLink}
-                      onChange={(e) => setMapLink(e.target.value)}
-                      className="w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none text-slate-800 focus:border-blue-400 font-mono text-[11px]"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 mb-1 block">
+                    {t.googleMapLink}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ใส่ชื่อสถานที่ หรือ URL พิกัด Google Maps"
+                    value={mapLink}
+                    onChange={(e) => setMapLink(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none text-slate-800 focus:border-blue-400 font-mono text-[11px]"
+                  />
                 </div>
 
                 {/* Google Maps Pinning Action & Status Card */}
@@ -696,48 +718,36 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {currentUrl && (
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {currentUrl && (
+                              <button
+                                type="button"
+                                onClick={() => onViewFile(currentUrl)}
+                                className="text-[10px] text-blue-600 bg-white px-2.5 py-1.5 rounded-lg border border-blue-200 font-bold hover:bg-blue-50 shadow-2xs"
+                              >
+                                ดูไฟล์
+                              </button>
+                            )}
+
                             <button
                               type="button"
-                              onClick={() => onViewFile(currentUrl)}
-                              className="text-[10px] text-blue-600 bg-white px-2.5 py-1.5 rounded-lg border border-blue-200 font-bold hover:bg-blue-50"
+                              onClick={() => openScanner(doc)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-2xs"
+                              title="ถ่ายรูป / สแกนเอกสาร"
                             >
-                              ดูไฟล์
+                              <Icons.Camera size={12} /> ถ่ายรูป
                             </button>
-                          )}
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setGdriveInputTarget(doc);
-                              setGdriveUrlInput(currentUrl?.startsWith('http') && !currentUrl.startsWith('data:') ? currentUrl : '');
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-2xs"
-                            title="ผูกลิงก์ Google Drive (15GB)"
-                          >
-                            <Icons.Cloud size={11} /> Drive
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openScanner(doc)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-2xs"
-                            title="สแกนด้วยกล้องมือถือ"
-                          >
-                            <Icons.Camera size={11} /> สแกน
-                          </button>
-
-                          <label className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold cursor-pointer transition-colors shadow-2xs">
-                            {uploading[doc] ? 'รอ...' : 'ไฟล์'}
-                            <input
-                              type="file"
-                              accept="image/*,application/pdf"
-                              className="hidden"
-                              onChange={(e) => handleFileUpload(e, doc)}
-                            />
-                          </label>
-                        </div>
+                            <label className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-bold cursor-pointer transition-colors shadow-2xs flex items-center gap-1">
+                              <Icons.Upload size={12} /> {uploading[doc] ? 'รอ...' : 'แนบไฟล์'}
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                className="hidden"
+                                onChange={(e) => handleFileUpload(e, doc)}
+                              />
+                            </label>
+                          </div>
                       </div>
                     </div>
                   );
@@ -857,68 +867,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             setAddressDetail(result.addressDetail);
           }}
         />
-      )}
-
-      {/* Google Drive Link Input Dialog */}
-      {gdriveInputTarget && (
-        <div className="backdrop z-[600] p-4 flex items-center justify-center">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-slate-200 animate-pop space-y-3.5">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Icons.Cloud className="text-emerald-600" size={16} /> ผูกลิงก์ Google Drive (15GB)
-              </h4>
-              <button
-                type="button"
-                onClick={() => setGdriveInputTarget(null)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <Icons.X size={16} />
-              </button>
-            </div>
-
-            <p className="text-[11px] text-slate-600 leading-relaxed">
-              วางลิงก์เอกสารจาก Google Drive หรือแชร์โฟลเดอร์สำหรับเอกสารนี้ เพื่อประหยัดพื้นที่จัดเก็บและเปิดดูเอกสาร PDF ความละเอียดสูงได้โดยตรง
-            </p>
-
-            <div>
-              <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                Google Drive Shared URL:
-              </label>
-              <input
-                type="url"
-                value={gdriveUrlInput}
-                onChange={(e) => setGdriveUrlInput(e.target.value)}
-                placeholder="https://drive.google.com/file/d/... หรือ folder"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setGdriveInputTarget(null)}
-                className="flex-1 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (gdriveUrlInput.trim()) {
-                    setDocUrls((prev) => ({
-                      ...prev,
-                      [gdriveInputTarget]: gdriveUrlInput.trim(),
-                    }));
-                  }
-                  setGdriveInputTarget(null);
-                }}
-                className="flex-1 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 shadow-xs"
-              >
-                บันทึกลิงก์
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </>
   );

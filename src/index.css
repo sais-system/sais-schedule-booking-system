@@ -31,11 +31,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px;
+  padding: 6px 12px;
   color: var(--header-text, white);
   background-color: var(--header-bg, #1e293b);
   z-index: 50;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  min-height: 46px;
 }
 
 .grid-container {
@@ -108,15 +109,15 @@
 }
 
 /* Day & Event Colors */
-.is-sunday-col { background-color: #D0021B !important; color: #ffffff !important; border-bottom: 1px solid #991b1b; }
-.is-holiday-cell { background-color: #D0021B !important; border-bottom: 1px solid #991b1b; }
-.is-global-event-col { background-color: #22c55e !important; color: #ffffff !important; border-bottom: 1px solid #166534; }
-.is-global-event-cell { background-color: #22c55e !important; border-bottom: 1px solid #166534; }
+.is-sunday-col { background-color: var(--sunday-bg, #D0021B) !important; color: var(--sunday-text, #ffffff) !important; border-bottom: 1px solid #991b1b; }
+.is-holiday-cell { background-color: var(--holiday-bg, #D0021B) !important; color: var(--holiday-text, #ffffff) !important; border-bottom: 1px solid #991b1b; }
+.is-global-event-col { background-color: var(--event-bg, #22c55e) !important; color: var(--event-text, #ffffff) !important; border-bottom: 1px solid #166534; }
+.is-global-event-cell { background-color: var(--event-bg, #22c55e) !important; color: var(--event-text, #ffffff) !important; border-bottom: 1px solid #166534; }
 
 /* Today Row */
 .sticky-left.is-today-row {
-  background-color: #2563eb !important;
-  color: #ffffff !important;
+  background-color: var(--today-bg, #2563eb) !important;
+  color: var(--today-text, #ffffff) !important;
   box-shadow: none !important;
   border-right: 1px solid #1d4ed8 !important;
   z-index: 20;
@@ -129,12 +130,12 @@
 }
 
 .grid-cell.is-holiday-cell.is-today-row {
-  background-color: #D0021B !important; 
+  background-color: var(--holiday-bg, #D0021B) !important; 
   box-shadow: inset 0 0 0 2px #fde047 !important; 
 }
 
 .grid-cell.is-global-event-cell.is-today-row {
-  background-color: #22c55e !important; 
+  background-color: var(--event-bg, #22c55e) !important; 
   box-shadow: inset 0 0 0 2px #fde047 !important; 
 }
 
@@ -164,10 +165,33 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.1); 
   border: 1px solid rgba(0,0,0,0.08);
   overflow: hidden;
-  min-height: 35px;
+  min-height: var(--card-min-height, 35px);
+  padding: var(--card-padding, 4px);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .task-content:active { opacity: 0.7; transform: scale(0.98); }
+
+.card-title-text {
+  font-size: var(--font-card-title, 11px);
+}
+.card-sub-text {
+  font-size: var(--font-card-sub, 10px);
+}
+.card-leave-text {
+  font-size: var(--font-leave, 11px);
+}
+.card-activity-text {
+  font-size: var(--font-activity, 11px);
+}
+.card-holiday-text {
+  font-size: var(--font-holiday, 11px);
+}
+.header-date-text {
+  font-size: var(--font-date-header, 12px);
+}
+.header-inspector-text {
+  font-size: var(--font-inspector-header, 12px);
+}
 
 .format-single-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: left; display: block; }
 .format-multi-line { width: 100%; text-align: left; display: flex; flex-direction: column; justify-content: center; }
@@ -208,13 +232,23 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.65);
+  background-color: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  z-index: 100;
-  padding: 16px;
+  z-index: 1200; /* Higher than .bottom-nav (999) */
+  padding: 16px 12px calc(env(safe-area-inset-bottom, 12px) + 24px) 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .backdrop {
+    padding: 8px 6px calc(env(safe-area-inset-bottom, 12px) + 72px) 6px;
+    align-items: flex-start;
+  }
 }
 
 .modal-card {
@@ -222,13 +256,22 @@
   border-radius: 20px;
   width: 100%;
   max-width: 480px;
-  max-height: 90vh;
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
   position: relative;
   display: flex;
   flex-direction: column;
+  margin: auto;
   animation: pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 640px) {
+  .modal-card {
+    border-radius: 18px;
+    max-height: calc(100dvh - 20px);
+    margin: 4px auto auto auto;
+  }
 }
 
 @keyframes pop {

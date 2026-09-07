@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Icons } from '../Icons';
 import { Language, translations } from '../../i18n';
+
+// Fix Leaflet default icon paths in bundler environments
+const DefaultIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 interface MapPickerModalProps {
   initialLat?: number;
@@ -12,7 +26,15 @@ interface MapPickerModalProps {
   onConfirm: (data: { latitude: number; longitude: number; mapLink: string; addressDetail: string }) => void;
 }
 
-// Preset landmarks across Thailand
+interface SearchResultItem {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type?: string;
+}
+
+// Preset landmarks across Thailand for 1-tap quick pick
 const PRESET_PLACES = [
   { name: 'อาคาร ซีพี ทาวเวอร์ 3 พญาไท', nameEn: 'CP Tower 3 Phayathai', lat: 13.7584, lng: 100.5349 },
   { name: 'สยามพารากอน กรุงเทพฯ', nameEn: 'Siam Paragon Bangkok', lat: 13.746, lng: 100.535 },
@@ -24,6 +46,7 @@ const PRESET_PLACES = [
   { name: 'สนามบินสุวรรณภูมิ', nameEn: 'Suvarnabhumi Airport', lat: 13.69, lng: 100.7501 },
   { name: 'สนามบินดอนเมือง', nameEn: 'Don Mueang Airport', lat: 13.9126, lng: 100.6067 },
   { name: 'เซ็นทรัลเฟสติวัล เชียงใหม่', nameEn: 'Central Chiang Mai', lat: 18.8065, lng: 99.0183 },
+  { name: 'เซ็นทรัล ภูเก็ต ฟลอเรสต้า', nameEn: 'Central Phuket Floresta', lat: 7.8931, lng: 98.3664 },
 ];
 
 export const MapPickerModal: React.FC<MapPickerModalProps> = ({
@@ -37,15 +60,15 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
 }) => {
   const t = translations[lang];
 
-  // Try to parse coordinates from initialLink if lat/lng not explicitly provided
-  let defaultLat = 13.7563; // Bangkok Center
+  // Resolve starting coordinates
+  let defaultLat = 13.7563; // Bangkok
   let defaultLng = 100.5018;
 
-  if (initialLat && initialLng) {
+  if (initialLat && initialLng && !isNaN(initialLat) && !isNaN(initialLng)) {
     defaultLat = initialLat;
     defaultLng = initialLng;
   } else if (initialLink) {
-    const coordMatch = initialLink.match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+    const coordMatch = initialLink.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
     if (coordMatch) {
       defaultLat = parseFloat(coordMatch[1]);
       defaultLng = parseFloat(coordMatch[2]);
@@ -54,43 +77,222 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
 
   const [lat, setLat] = useState<number>(defaultLat);
   const [lng, setLng] = useState<number>(defaultLng);
-  const [zoom, setZoom] = useState<number>(14);
   const [searchQuery, setSearchQuery] = useState(initialSiteName || '');
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-  const [addressDesc, setAddressDesc] = useState('');
-  const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [addressDesc, setAddressDesc] = useState(initialSiteName || '');
+  const [mapType, setMapType] = useState<'street' | 'satellite'>('street');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showResultsDropdown, setShowResultsDropdown] = useState(false);
 
-  // Map interaction container ref
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  // Generate Google Maps direct links
+  // Generate Google Maps links
   const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
   const googleMapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lng.toFixed(6)}`;
 
-  // Handle click on the map canvas to drop pin
-  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = mapContainerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+  // Tile layer URLs
+  const streetTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const satelliteTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-    // Calculate normalized offset from center (-0.5 to 0.5)
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-    const normX = (clickX / rect.width) - 0.5;
-    const normY = (clickY / rect.height) - 0.5;
+  // Initialize Leaflet Map
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
 
-    // Convert screen displacement to lat/long shift based on current zoom level
-    const latSpan = 180 / Math.pow(2, zoom - 2);
-    const lngSpan = 360 / Math.pow(2, zoom - 2);
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [defaultLat, defaultLng],
+        zoom: 15,
+        zoomControl: false,
+      });
 
-    const newLat = lat - (normY * (latSpan * 0.4));
-    const newLng = lng + (normX * (lngSpan * 0.4));
+      // Add zoom control to top-right
+      L.control.zoom({ position: 'topright' }).addTo(map);
 
-    setLat(parseFloat(newLat.toFixed(6)));
-    setLng(parseFloat(newLng.toFixed(6)));
+      // Create primary tile layer
+      const initialLayer = L.tileLayer(streetTileUrl, {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(map);
+      tileLayerRef.current = initialLayer;
+
+      // Create Draggable Pin Marker
+      const marker = L.marker([defaultLat, defaultLng], {
+        draggable: true,
+      }).addTo(map);
+      markerRef.current = marker;
+
+      marker.bindPopup(`<b>📍 ${addressDesc || 'ตำแหน่งที่ปักหมุด'}</b><br>${defaultLat.toFixed(6)}, ${defaultLng.toFixed(6)}`);
+
+      // Update coordinates on marker drag
+      marker.on('dragend', () => {
+        const position = marker.getLatLng();
+        const newLat = parseFloat(position.lat.toFixed(6));
+        const newLng = parseFloat(position.lng.toFixed(6));
+        setLat(newLat);
+        setLng(newLng);
+        reverseGeocode(newLat, newLng);
+      });
+
+      // Click anywhere on map to reposition pin
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        const newLat = parseFloat(e.latlng.lat.toFixed(6));
+        const newLng = parseFloat(e.latlng.lng.toFixed(6));
+        setLat(newLat);
+        setLng(newLng);
+        marker.setLatLng([newLat, newLng]);
+        marker.openPopup();
+        reverseGeocode(newLat, newLng);
+      });
+
+      mapInstanceRef.current = map;
+
+      // Fix container size on next tick
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 200);
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update tile layer when mapType toggles
+  useEffect(() => {
+    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+
+    mapInstanceRef.current.removeLayer(tileLayerRef.current);
+    const newUrl = mapType === 'satellite' ? satelliteTileUrl : streetTileUrl;
+    const newAttribution = mapType === 'satellite' ? '&copy; Esri World Imagery' : '&copy; OpenStreetMap contributors';
+
+    const newLayer = L.tileLayer(newUrl, {
+      attribution: newAttribution,
+      maxZoom: 19,
+    }).addTo(mapInstanceRef.current);
+
+    tileLayerRef.current = newLayer;
+  }, [mapType]);
+
+  // Reverse Geocoding via Nominatim API
+  const reverseGeocode = async (latitude: number, longitude: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=th,en`,
+        { headers: { 'User-Agent': 'SAISBookingSystem/2.0' } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.display_name) {
+          const shortName = data.name || data.address?.building || data.address?.road || data.display_name.split(',')[0];
+          setAddressDesc(shortName || data.display_name);
+          if (markerRef.current) {
+            markerRef.current.setPopupContent(`<b>📍 ${shortName || 'ตำแหน่งที่เลือก'}</b><br>${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          }
+        }
+      }
+    } catch {
+      // Fallback silently if offline
+    }
   };
 
-  // Get current GPS location
+  // Forward Search with Nominatim Geocoder
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    // Check if query is coordinate format "13.7563, 100.5018"
+    const coordMatch = query.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
+    if (coordMatch) {
+      const cLat = parseFloat(parseFloat(coordMatch[1]).toFixed(6));
+      const cLng = parseFloat(parseFloat(coordMatch[2]).toFixed(6));
+      updateMapPosition(cLat, cLng, query, 16);
+      setShowResultsDropdown(false);
+      return;
+    }
+
+    // Check preset landmarks first
+    const preset = PRESET_PLACES.find(
+      (p) =>
+        p.name.toLowerCase().includes(query.toLowerCase()) ||
+        p.nameEn.toLowerCase().includes(query.toLowerCase())
+    );
+    if (preset) {
+      updateMapPosition(preset.lat, preset.lng, lang === 'th' ? preset.name : preset.nameEn, 16);
+    }
+
+    // Search online via OpenStreetMap Nominatim
+    setIsSearching(true);
+    setShowResultsDropdown(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}&countrycodes=th&limit=7&accept-language=th,en`,
+        { headers: { 'User-Agent': 'SAISBookingSystem/2.0' } }
+      );
+      if (res.ok) {
+        const data: SearchResultItem[] = await res.json();
+        setSearchResults(data);
+        if (data.length > 0) {
+          const first = data[0];
+          const fLat = parseFloat(parseFloat(first.lat).toFixed(6));
+          const fLng = parseFloat(parseFloat(first.lon).toFixed(6));
+          updateMapPosition(fLat, fLng, first.display_name.split(',')[0], 16);
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Helper to fly to coordinates & update marker
+  const updateMapPosition = (newLat: number, newLng: number, title?: string, zoomLevel = 16) => {
+    setLat(newLat);
+    setLng(newLng);
+    if (title) setAddressDesc(title);
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([newLat, newLng], zoomLevel, {
+        duration: 1.2,
+      });
+    }
+
+    if (markerRef.current) {
+      markerRef.current.setLatLng([newLat, newLng]);
+      markerRef.current.setPopupContent(`<b>📍 ${title || 'ตำแหน่งที่เลือก'}</b><br>${newLat.toFixed(6)}, ${newLng.toFixed(6)}`);
+      markerRef.current.openPopup();
+    }
+  };
+
+  // Pick suggestion from dropdown
+  const handleSelectResult = (item: SearchResultItem) => {
+    const itemLat = parseFloat(parseFloat(item.lat).toFixed(6));
+    const itemLng = parseFloat(parseFloat(item.lon).toFixed(6));
+    const title = item.display_name.split(',')[0];
+    setSearchQuery(title);
+    updateMapPosition(itemLat, itemLng, title, 16);
+    setShowResultsDropdown(false);
+  };
+
+  // Pick Preset Landmark
+  const handleSelectPreset = (p: typeof PRESET_PLACES[0]) => {
+    setSearchQuery(lang === 'th' ? p.name : p.nameEn);
+    updateMapPosition(p.lat, p.lng, lang === 'th' ? p.name : p.nameEn, 16);
+    setShowResultsDropdown(false);
+  };
+
+  // Current GPS Location
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
       alert(lang === 'th' ? 'อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง GPS' : 'Geolocation is not supported by your device');
@@ -102,12 +304,10 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
         setIsLocating(false);
         const currentLat = parseFloat(position.coords.latitude.toFixed(6));
         const currentLng = parseFloat(position.coords.longitude.toFixed(6));
-        setLat(currentLat);
-        setLng(currentLng);
-        setZoom(16);
-        setAddressDesc(lang === 'th' ? 'ตำแหน่ง GPS ปัจจุบันของคุณ' : 'Your current GPS location');
+        updateMapPosition(currentLat, currentLng, lang === 'th' ? 'ตำแหน่ง GPS ปัจจุบันของคุณ' : 'Your current GPS location', 17);
+        reverseGeocode(currentLat, currentLng);
       },
-      (error) => {
+      () => {
         setIsLocating(false);
         alert(
           lang === 'th'
@@ -117,46 +317,6 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  };
-
-  // Search places or coordinate strings
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-
-    // Check if query is coordinates "13.7563, 100.5018"
-    const coordMatch = searchQuery.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
-    if (coordMatch) {
-      setLat(parseFloat(parseFloat(coordMatch[1]).toFixed(6)));
-      setLng(parseFloat(parseFloat(coordMatch[2]).toFixed(6)));
-      setZoom(15);
-      return;
-    }
-
-    // Check preset landmarks
-    const foundPreset = PRESET_PLACES.find(
-      (p) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.nameEn.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    if (foundPreset) {
-      setLat(foundPreset.lat);
-      setLng(foundPreset.lng);
-      setZoom(15);
-      setAddressDesc(lang === 'th' ? foundPreset.name : foundPreset.nameEn);
-    } else {
-      // Default to slight offset or inform user
-      setAddressDesc(searchQuery);
-    }
-  };
-
-  const handleSelectPreset = (preset: (typeof PRESET_PLACES)[0]) => {
-    setLat(preset.lat);
-    setLng(preset.lng);
-    setZoom(15);
-    setSearchQuery(lang === 'th' ? preset.name : preset.nameEn);
-    setAddressDesc(lang === 'th' ? preset.name : preset.nameEn);
   };
 
   const handleConfirm = () => {
@@ -169,7 +329,6 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
     onClose();
   };
 
-  // Copy link
   const handleCopyLink = () => {
     navigator.clipboard.writeText(googleMapsSearchUrl);
     setCopiedLink(true);
@@ -177,222 +336,234 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="px-5 py-3.5 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/65 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]">
+        {/* Modal Header */}
+        <div className="px-4 sm:px-5 py-3 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white flex items-center justify-between shadow-sm shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-white shrink-0">
               <Icons.MapPin size={18} />
             </div>
             <div>
-              <h3 className="text-sm md:text-base font-bold leading-tight flex items-center gap-1.5">
+              <h3 className="text-sm sm:text-base font-bold leading-tight flex items-center gap-1.5">
                 {t.mapModalTitle}
+                <span className="text-[10px] bg-emerald-400 text-slate-900 font-black px-1.5 py-0.2 rounded-full uppercase">
+                  GPS Pro
+                </span>
               </h3>
-              <p className="text-[11px] text-blue-100/90">{t.mapModalSubtitle}</p>
+              <p className="text-[11px] text-blue-100/90 hidden sm:block">{t.mapModalSubtitle}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors shrink-0"
           >
             <Icons.X />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-4 overflow-y-auto space-y-3 custom-scrollbar">
-          {/* Search bar & GPS */}
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t.searchPlacePlaceholder}
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-blue-500 font-medium text-slate-800"
-              />
-              <span className="absolute left-3 top-2.5 text-slate-400">
-                <Icons.Search />
-              </span>
-            </div>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 shadow-sm"
-            >
-              {t.search}
-            </button>
-            <button
-              type="button"
-              onClick={handleGetCurrentLocation}
-              disabled={isLocating}
-              className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shrink-0"
-              title={t.useGpsLocation}
-            >
-              <Icons.Navigation size={14} className={isLocating ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">{isLocating ? t.gpsLocating : t.useGpsLocation}</span>
-            </button>
-          </form>
+        {/* Modal Body */}
+        <div className="p-3 sm:p-4 overflow-y-auto space-y-3 custom-scrollbar flex-1">
+          {/* Search bar & GPS Action */}
+          <div className="relative">
+            <form onSubmit={handleSearch} className="flex gap-1.5 sm:gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => {
+                    if (searchResults.length > 0) setShowResultsDropdown(true);
+                  }}
+                  placeholder={lang === 'th' ? 'พิมพ์ค้นหาชื่อสถานที่, โครงการ, อาคาร, โรงพยาบาล หรือพิกัด...' : t.searchPlacePlaceholder}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-blue-500 font-medium text-slate-800 shadow-2xs"
+                />
+                <span className="absolute left-3 top-2.5 text-slate-400">
+                  <Icons.Search />
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSearching}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 shadow-sm flex items-center gap-1"
+              >
+                {isSearching ? <Icons.Loader size={14} /> : <Icons.Search size={14} />}
+                <span className="hidden sm:inline">{t.search}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleGetCurrentLocation}
+                disabled={isLocating}
+                className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shrink-0"
+                title={t.useGpsLocation}
+              >
+                <Icons.Navigation size={14} className={isLocating ? 'animate-spin text-emerald-600' : 'text-emerald-600'} />
+                <span className="hidden sm:inline">{isLocating ? t.gpsLocating : t.useGpsLocation}</span>
+              </button>
+            </form>
+
+            {/* Autocomplete Search Results Dropdown */}
+            {showResultsDropdown && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                <div className="p-1.5 text-[10px] font-bold text-slate-400 border-b border-slate-100 flex items-center justify-between">
+                  <span>ผลการค้นหาสถานที่ ({searchResults.length} แห่ง)</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowResultsDropdown(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                {searchResults.map((item) => (
+                  <button
+                    key={item.place_id}
+                    type="button"
+                    onClick={() => handleSelectResult(item)}
+                    className="w-full text-left p-2 hover:bg-blue-50 rounded-xl transition-colors text-xs text-slate-800 flex items-start gap-2 border-b border-slate-50 last:border-0"
+                  >
+                    <Icons.MapPin size={14} className="text-red-500 shrink-0 mt-0.5" />
+                    <span className="line-clamp-2">{item.display_name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Quick Preset Places */}
           <div className="space-y-1">
-            <span className="text-[11px] font-bold text-slate-500">{t.presetLocations}</span>
-            <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto py-0.5">
+            <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+              <span>📍 สถานที่ยอดนิยม (แตะเพื่อไปทันที):</span>
+            </span>
+            <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto py-0.5">
               {PRESET_PLACES.map((p) => (
                 <button
                   key={p.name}
                   type="button"
                   onClick={() => handleSelectPreset(p)}
-                  className="text-[10px] px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border border-slate-200 rounded-lg text-slate-700 transition-colors font-medium"
+                  className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 rounded-lg text-slate-700 transition-colors font-medium whitespace-nowrap"
                 >
-                  📍 {lang === 'th' ? p.name : p.nameEn}
+                  {lang === 'th' ? p.name : p.nameEn}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Interactive Map Visual Stage */}
-          <div className="relative rounded-xl border border-slate-200 overflow-hidden shadow-inner bg-slate-100 select-none">
-            {/* Map Frame / Tile Canvas */}
+          {/* Real Leaflet Map Container */}
+          <div className="relative rounded-2xl border-2 border-slate-300 overflow-hidden shadow-sm bg-slate-100">
+            {/* Map Canvas */}
             <div
               ref={mapContainerRef}
-              onClick={handleMapClick}
-              className="w-full h-64 md:h-72 cursor-crosshair relative overflow-hidden bg-slate-200"
-              style={{
-                backgroundImage:
-                  mapType === 'satellite'
-                    ? `radial-gradient(#334155 1px, transparent 1px), radial-gradient(#1e293b 1px, #0f172a 1px)`
-                    : `radial-gradient(#94a3b8 1px, transparent 1px), radial-gradient(#cbd5e1 1px, #f1f5f9 1px)`,
-                backgroundSize: '20px 20px',
-                backgroundPosition: '0 0, 10px 10px',
-              }}
-            >
-              {/* Simulated Map Roads & Geographical Grids */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-                    <path d="M 60 0 L 0 0 0 60" fill="none" stroke={mapType === 'satellite' ? '#475569' : '#cbd5e1'} strokeWidth="1" />
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
-                {/* Simulated Expressway / Main Road Vector Lines */}
-                <path d="M 0 120 Q 150 180 320 140 T 640 160" fill="none" stroke="#fbbf24" strokeWidth="6" opacity="0.7" />
-                <path d="M 120 0 Q 180 150 200 300" fill="none" stroke="#60a5fa" strokeWidth="5" opacity="0.6" />
-                <path d="M 0 240 Q 240 220 640 260" fill="none" stroke="#f87171" strokeWidth="4" opacity="0.5" />
-              </svg>
+              className="w-full h-64 sm:h-80 md:h-96 z-0"
+              style={{ minHeight: '260px' }}
+            />
 
-              {/* Pin Marker (Centered relative to coordinates) */}
-              <div
-                className="absolute transform -translate-x-1/2 -translate-y-full transition-all duration-200 pointer-events-none"
-                style={{ left: '50%', top: '50%' }}
+            {/* Instruction Banner at Top */}
+            <div className="absolute top-2 left-2 z-[400] bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-800 shadow-sm pointer-events-none flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+              {lang === 'th' ? 'จิ้มหรือลากหมุดบนแผนที่จริงเพื่อเลือกตำแหน่งที่แม่นยำ' : 'Click or drag pin to position'}
+            </div>
+
+            {/* Map Style Switcher (Street vs Satellite) */}
+            <div className="absolute top-2 right-12 z-[400] flex gap-1">
+              <button
+                type="button"
+                onClick={() => setMapType('street')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow transition-colors border ${
+                  mapType === 'street'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
+                }`}
               >
-                <div className="relative flex flex-col items-center">
-                  <div className="px-2 py-0.5 bg-red-600 text-white text-[10px] font-black rounded shadow-md whitespace-nowrap mb-1 animate-bounce">
-                    📍 {searchQuery || (lang === 'th' ? 'ตำแหน่งที่ปักหมุด' : 'Pinned Location')}
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg border-2 border-white ring-4 ring-red-300/50">
-                    <Icons.MapPin size={18} />
-                  </div>
-                  <div className="w-2 h-2 bg-red-700 rounded-full mt-[-2px] shadow"></div>
-                </div>
-              </div>
+                🗺️ แผนที่ถนน
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapType('satellite')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow transition-colors border ${
+                  mapType === 'satellite'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
+                }`}
+              >
+                🛰️ ดาวเทียม
+              </button>
+            </div>
 
-              {/* Hint badge at top of map */}
-              <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-700 shadow-sm pointer-events-none flex items-center gap-1">
-                <Icons.Compass size={12} className="text-blue-600" />
-                {lang === 'th' ? 'คลิกบนแผนที่เพื่อย้ายหมุด' : 'Click anywhere on map to reposition pin'}
-              </div>
-
-              {/* Map controls */}
-              <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setZoom((z) => Math.min(18, z + 1));
-                  }}
-                  className="w-7 h-7 bg-white hover:bg-slate-50 text-slate-700 rounded-lg shadow border border-slate-200 font-bold flex items-center justify-center text-sm"
-                  title="Zoom In"
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setZoom((z) => Math.max(8, z - 1));
-                  }}
-                  className="w-7 h-7 bg-white hover:bg-slate-50 text-slate-700 rounded-lg shadow border border-slate-200 font-bold flex items-center justify-center text-sm"
-                  title="Zoom Out"
-                >
-                  -
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMapType((m) => (m === 'standard' ? 'satellite' : 'standard'));
-                  }}
-                  className="w-7 h-7 bg-white hover:bg-slate-50 text-slate-700 rounded-lg shadow border border-slate-200 font-bold flex items-center justify-center text-[10px]"
-                  title="Toggle Map Style"
-                >
-                  {mapType === 'standard' ? '🛰️' : '🗺️'}
-                </button>
-              </div>
-
-              {/* Bottom coordinate bar overlay */}
-              <div className="absolute bottom-2 inset-x-2 bg-white/95 backdrop-blur-sm p-2 rounded-xl border border-slate-200 shadow-md flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="font-mono font-bold text-slate-800 text-[11px]">
-                    Lat: {lat.toFixed(6)}, Lng: {lng.toFixed(6)}
+            {/* Bottom Floating Coordinate Bar */}
+            <div className="absolute bottom-2 inset-x-2 z-[400] bg-white/95 backdrop-blur-sm p-2 sm:p-2.5 rounded-xl border border-slate-200 shadow-md flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 overflow-hidden pr-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                <div className="overflow-hidden">
+                  <span className="font-mono font-bold text-slate-800 text-[11px] block truncate">
+                    GPS: {lat.toFixed(6)}, {lng.toFixed(6)}
                   </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <a
-                    href={googleMapsNavUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-lg border border-blue-200 flex items-center gap-1 transition-colors"
-                  >
-                    <Icons.Navigation size={11} /> {t.testMapNav}
-                  </a>
+                  {addressDesc && (
+                    <span className="text-[10px] text-slate-500 block truncate">
+                      {addressDesc}
+                    </span>
+                  )}
                 </div>
               </div>
+
+              <a
+                href={googleMapsNavUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-lg border border-blue-200 flex items-center gap-1 shrink-0 transition-colors shadow-2xs"
+              >
+                <Icons.Navigation size={12} /> {t.testMapNav}
+              </a>
             </div>
           </div>
 
-          {/* Coordinate manual fine-tuning inputs */}
-          <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+          {/* Manual Coordinate Inputs */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 bg-slate-50 p-2.5 sm:p-3 rounded-2xl border border-slate-200 text-xs">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                {lang === 'th' ? 'พิกัดละติจูด (Latitude)' : 'Latitude'}
+              <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                {lang === 'th' ? 'ละติจูด (Latitude):' : 'Latitude:'}
               </label>
               <input
                 type="number"
                 step="0.000001"
                 value={lat}
-                onChange={(e) => setLat(parseFloat(parseFloat(e.target.value).toFixed(6)) || 0)}
-                className="w-full p-2 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-800 text-xs outline-none focus:border-blue-400"
+                onChange={(e) => {
+                  const val = parseFloat(parseFloat(e.target.value).toFixed(6)) || 0;
+                  setLat(val);
+                  if (mapInstanceRef.current && markerRef.current) {
+                    markerRef.current.setLatLng([val, lng]);
+                    mapInstanceRef.current.panTo([val, lng]);
+                  }
+                }}
+                className="w-full p-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-800 text-xs outline-none focus:border-blue-400"
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                {lang === 'th' ? 'พิกัดลองจิจูด (Longitude)' : 'Longitude'}
+              <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                {lang === 'th' ? 'ลองจิจูด (Longitude):' : 'Longitude:'}
               </label>
               <input
                 type="number"
                 step="0.000001"
                 value={lng}
-                onChange={(e) => setLng(parseFloat(parseFloat(e.target.value).toFixed(6)) || 0)}
-                className="w-full p-2 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-800 text-xs outline-none focus:border-blue-400"
+                onChange={(e) => {
+                  const val = parseFloat(parseFloat(e.target.value).toFixed(6)) || 0;
+                  setLng(val);
+                  if (mapInstanceRef.current && markerRef.current) {
+                    markerRef.current.setLatLng([lat, val]);
+                    mapInstanceRef.current.panTo([lat, val]);
+                  }
+                }}
+                className="w-full p-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-800 text-xs outline-none focus:border-blue-400"
               />
             </div>
           </div>
 
-          {/* Generated Google Maps Link preview */}
-          <div className="flex items-center gap-2 bg-blue-50/70 p-2.5 rounded-xl border border-blue-100 text-xs">
+          {/* Google Maps Link & Copy Button */}
+          <div className="flex items-center gap-2 bg-blue-50/70 p-2 sm:p-2.5 rounded-2xl border border-blue-100 text-xs">
             <span className="text-blue-600 shrink-0">
               <Icons.MapPin size={16} />
             </span>
@@ -400,33 +571,34 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
               type="text"
               readOnly
               value={googleMapsSearchUrl}
-              className="w-full bg-transparent font-mono text-[11px] text-blue-900 select-all outline-none truncate"
+              className="flex-1 bg-white border border-blue-200 text-slate-600 rounded-lg px-2 py-1 text-[11px] font-mono outline-none select-all"
             />
             <button
               type="button"
               onClick={handleCopyLink}
-              className="px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-700 font-bold text-[10px] rounded-lg border border-blue-200 shrink-0 flex items-center gap-1 transition-colors"
+              className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 font-bold rounded-lg text-[10px] shrink-0 transition-colors shadow-2xs"
             >
-              <Icons.Copy size={12} /> {copiedLink ? t.copied : t.copy}
+              {copiedLink ? 'คัดลอกแล้ว!' : 'คัดลอกลิงก์'}
             </button>
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+        {/* Modal Footer */}
+        <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+            className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors"
           >
             {t.cancel}
           </button>
           <button
             type="button"
             onClick={handleConfirm}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-2 transition-all active:scale-95"
+            className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-1.5"
           >
-            <Icons.Check /> {t.confirmPin}
+            <Icons.Check />
+            {lang === 'th' ? 'ยืนยันปักหมุดตำแหน่งนี้' : 'Confirm Location Pin'}
           </button>
         </div>
       </div>

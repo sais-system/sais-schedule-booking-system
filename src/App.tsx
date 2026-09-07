@@ -74,6 +74,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'calendar' | 'search' | 'documents' | 'my_bookings' | 'dashboard' | 'admin'>('calendar');
   const [adminTab, setAdminTab] = useState<'menu' | 'users' | 'inspectors' | 'special' | 'all_bookings' | 'settings'>('menu');
   const [myBookingsTab, setMyBookingsTab] = useState<'pending' | 'approved' | 'completed' | 'leave'>('pending');
+  const [selectedInspectorFilter, setSelectedInspectorFilter] = useState<string>('all');
 
   // UI Scales and Zoom
   const [tableFontScale, setTableFontScale] = useState<number>(() => {
@@ -643,7 +644,8 @@ export default function App() {
     const updatedUsers = [...users, u];
     setUsers(updatedUsers);
     saveUsersToStorage(updatedUsers);
-    logSystem('REGISTER', `ผู้ใช้ ${u.username} สมัครสมาชิก`);
+    firestoreSaveUsers(updatedUsers);
+    logSystem('REGISTER', `ผู้ใช้ ${u.username} (${u.full_name}) สมัครสมาชิกใหม่ (รออนุมัติ)`);
   };
 
   const handleResetPassword = (name: string, phone: string, newPass: string) => {
@@ -672,6 +674,51 @@ export default function App() {
       },
     });
   };
+
+  // Requirement 4: Enforce Authentication Gate
+  // Website and calendar can only be viewed, edited, modified, or deleted when logged in
+  if (!currentUser) {
+    return (
+      <>
+        <AuthModal
+          isGate={true}
+          users={users}
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+          onResetPassword={handleResetPassword}
+          setAlertMsg={setAlertMsg}
+          setSuccessModal={setSuccessModal}
+        />
+        {alertMsg && (
+          <div className="backdrop z-[600] p-4 flex items-center justify-center">
+            <div className="bg-white w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl animate-pop">
+              <div className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Icons.Alert />
+              </div>
+              <h3 className="text-base font-bold text-slate-800 mb-1.5">แจ้งเตือน</h3>
+              <p className="text-xs text-slate-600 mb-5 whitespace-pre-line leading-relaxed">{alertMsg}</p>
+              <button
+                onClick={() => setAlertMsg(null)}
+                className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs"
+              >
+                รับทราบ
+              </button>
+            </div>
+          </div>
+        )}
+        {successModal && (
+          <div className="fixed inset-0 z-[700] flex items-center justify-center pointer-events-none p-4">
+            <div className="bg-white w-[85%] max-w-[280px] rounded-3xl p-5 text-center shadow-2xl animate-pop border-4 border-emerald-400">
+              <div className="mx-auto w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-2.5">
+                <Icons.Check />
+              </div>
+              <div className="text-sm font-bold text-slate-800">{successModal}</div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div
@@ -705,17 +752,17 @@ export default function App() {
 
       {/* Main Header */}
       <header className="main-header">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-red-600 text-white font-black flex items-center justify-center text-sm shadow-md">
+        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-600 text-white font-black flex items-center justify-center text-xs sm:text-sm shadow-sm shrink-0">
             S
           </div>
-          <div>
-            <h1 className="text-sm md:text-base font-bold tracking-tight leading-tight">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight leading-tight line-clamp-2 break-words text-white">
               {settings.appName || 'SAIS BOOKING'}
             </h1>
-            <div className="flex items-center gap-1.5 text-[10px]">
+            <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] leading-none mt-0.5">
               <span
-                className={`inline-block w-2 h-2 rounded-full ${
+                className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
                   cloudStatus === 'connected'
                     ? 'bg-emerald-400'
                     : cloudStatus === 'syncing'
@@ -723,62 +770,51 @@ export default function App() {
                     : 'bg-slate-400'
                 }`}
               ></span>
-              <span className="text-slate-300 font-medium flex items-center gap-0.5">
-                <Icons.Flame size={11} className="text-amber-400" />
-                Firebase 100%{' '}
-                {cloudStatus === 'connected'
-                  ? 'Realtime Cloud'
-                  : cloudStatus === 'syncing'
-                  ? 'กำลังซิงค์...'
-                  : 'ออฟไลน์'}
+              <span className="text-slate-300 font-medium flex items-center gap-0.5 truncate">
+                <Icons.Flame size={10} className="text-amber-400 shrink-0" />
+                <span className="truncate">
+                  Firebase 100%{' '}
+                  {cloudStatus === 'connected'
+                    ? 'Realtime'
+                    : cloudStatus === 'syncing'
+                    ? 'กำลังซิงค์...'
+                    : 'ออฟไลน์'}
+                </span>
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 relative">
+        <div className="flex items-center gap-1 sm:gap-2 relative shrink-0">
           {/* Cloud & Share Direct URL Button */}
           <button
             type="button"
             onClick={() => setCloudShareOpen(true)}
-            className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all active:scale-95 border border-blue-400/40"
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all active:scale-95 border border-blue-400/40 shrink-0"
             title={lang === 'th' ? 'ศูนย์แชร์ลิงก์ & คลาวด์อัตโนมัติ' : 'Live Cloud & Share URL'}
           >
-            <Icons.Cloud size={15} />
-            <span className="hidden sm:inline">{lang === 'th' ? 'แชร์ลิงก์' : 'Share'}</span>
+            <Icons.Cloud size={14} />
+            <span className="hidden md:inline">{lang === 'th' ? 'แชร์ลิงก์' : 'Share'}</span>
           </button>
 
-          {/* Tutorial Simulation & Handbook Button (FEATURE 4) */}
+          {/* Tutorial Simulation & Handbook Button */}
           <button
             type="button"
             onClick={() => setTutorialOpen(true)}
-            className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all active:scale-95 border border-amber-400/40"
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all active:scale-95 border border-amber-400/40 shrink-0"
             title={t.tutorialButton}
           >
-            <Icons.GraduationCap size={15} />
-            <span className="hidden sm:inline">{t.tutorialButton}</span>
-          </button>
-
-          {/* Language Switcher (FEATURE 3) */}
-          <button
-            type="button"
-            onClick={() => setLanguage(lang === 'th' ? 'en' : 'th')}
-            className="px-2 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 border border-white/15 transition-all active:scale-95"
-            title={lang === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย'}
-          >
-            <Icons.Languages size={14} className="text-blue-300" />
-            <span className="font-mono text-[11px] font-bold">
-              {lang === 'th' ? '🇹🇭 TH' : '🇬🇧 EN'}
-            </span>
+            <Icons.GraduationCap size={14} />
+            <span className="hidden md:inline">{t.tutorialButton}</span>
           </button>
 
           {/* Settings Menu Button */}
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
             title={t.systemSettings}
           >
-            <Icons.Settings />
+            <Icons.Settings size={16} />
           </button>
 
           {showSettings && (
@@ -842,37 +878,6 @@ export default function App() {
                   เปิดดู
                 </span>
               </button>
-
-              {/* Language Switcher in Settings */}
-              <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 mb-2.5 flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                  <Icons.Languages size={14} className="text-blue-600" /> {t.language}:
-                </span>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setLanguage('th')}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                      lang === 'th'
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
-                  >
-                    🇹🇭 TH
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLanguage('en')}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                      lang === 'en'
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
-                  >
-                    🇬🇧 EN
-                  </button>
-                </div>
-              </div>
 
               {/* Cloud Sync Status in Menu */}
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 mb-3 space-y-1.5">
@@ -995,11 +1000,27 @@ export default function App() {
             {unreadNotifs.length > 0 && <span className="notif-dot animate-pulse"></span>}
           </button>
 
-          {/* User badge */}
+          {/* User badge & Quick Logout */}
           {currentUser ? (
-            <div className="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-              <Icons.User />
-              <span className="truncate max-w-[90px]">{currentUser.username}</span>
+            <div className="flex items-center gap-1">
+              <div
+                className="text-xs font-bold bg-white/20 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-white shadow-xs"
+                title={`${currentUser.full_name || currentUser.username} (${currentUser.role})`}
+              >
+                <Icons.User size={13} />
+                <span className="truncate max-w-[75px] sm:max-w-[110px]">{currentUser.username}</span>
+                <span className="text-[9px] bg-red-600 text-white font-mono uppercase px-1.5 py-0.2 rounded font-bold">
+                  {currentUser.role}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-xl transition-all active:scale-95 cursor-pointer"
+                title="ออกจากระบบ (Logout)"
+              >
+                <Icons.LogOut size={14} />
+              </button>
             </div>
           ) : (
             <button
@@ -1056,33 +1077,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Quick Filter Strip for Product Line */}
-            <div className="bg-slate-50/90 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between gap-2 overflow-x-auto text-xs">
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                  โมเดล:
-                </span>
-                {['All', 'ES1', '3300', '5500', 'S-villas', 'ES2'].map((prod) => (
-                  <button
-                    key={prod}
-                    type="button"
-                    onClick={() => setCalFilterProduct(prod)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
-                      calFilterProduct === prod
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {prod === 'All' ? 'ทั้งหมด' : prod}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1 shrink-0 text-[10px] text-slate-500 font-mono">
-                {calendarDisplayBookings.filter((b) => b.status !== 'cancelled').length} งาน
-              </div>
-            </div>
-
             {/* Month-Year Jump Picker */}
             {showMonthPicker && (
               <div className="absolute top-[48px] left-0 right-0 bg-white border-b border-slate-200 p-4 z-40 shadow-xl animate-pop">
@@ -1125,6 +1119,58 @@ export default function App() {
               </div>
             )}
 
+            {/* Streamlined Calendar Filters Bar: Product Line & Inspector Dropdowns */}
+            <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-xs shrink-0 shadow-2xs">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {/* Product Line Dropdown */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                    โมเดล:
+                  </span>
+                  <select
+                    value={calFilterProduct}
+                    onChange={(e) => setCalFilterProduct(e.target.value)}
+                    className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-bold text-slate-700 outline-none focus:border-blue-500 cursor-pointer shadow-2xs hover:border-slate-400 transition-colors"
+                  >
+                    <option value="All">ทุกโมเดล (All)</option>
+                    <option value="ES1">ES1</option>
+                    <option value="3300">3300</option>
+                    <option value="5500">5500</option>
+                    <option value="S-villas">S-villas</option>
+                    <option value="ES2">ES2</option>
+                  </select>
+                </div>
+
+                {/* Inspector Dropdown */}
+                <div className="flex items-center gap-1.5 flex-1 min-w-[140px] max-w-[240px]">
+                  <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                    ผู้ตรวจ:
+                  </span>
+                  <select
+                    value={selectedInspectorFilter}
+                    onChange={(e) => setSelectedInspectorFilter(e.target.value)}
+                    className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-bold text-slate-700 outline-none focus:border-blue-500 cursor-pointer shadow-2xs hover:border-slate-400 transition-colors w-full truncate"
+                  >
+                    <option value="all">👥 ทุกคน ({inspectors.length} ท่าน)</option>
+                    {inspectors.map((ins) => (
+                      <option key={ins.name} value={ins.name}>
+                        {ins.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Total Bookings Count Badge */}
+              <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-slate-600 font-mono bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span className="font-bold text-slate-800">
+                  {calendarDisplayBookings.filter((b) => b.status !== 'cancelled').length}
+                </span>
+                <span className="text-slate-400">งาน</span>
+              </div>
+            </div>
+
             {/* Calendar Table Grid */}
             <div className="grid-wrapper">
               <CalendarGrid
@@ -1146,6 +1192,7 @@ export default function App() {
                 specialFontScale={specialFontScale}
                 columnZoom={columnZoom}
                 isExporting={isExporting}
+                selectedInspectorFilter={selectedInspectorFilter}
               />
             </div>
 

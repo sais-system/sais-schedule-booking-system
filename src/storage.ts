@@ -14,31 +14,33 @@ const STORAGE_KEYS = {
 
 export const getStoredUser = (): User | null => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    const time = localStorage.getItem(STORAGE_KEYS.SESSION_TIME);
-    if (saved && time) {
-      if (Date.now() - parseInt(time) > 86400000 * 7) { // 7 days session
-        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-        localStorage.removeItem(STORAGE_KEYS.SESSION_TIME);
-        return null;
-      }
+    // Purge any legacy permanent localStorage user credentials
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    localStorage.removeItem(STORAGE_KEYS.SESSION_TIME);
+
+    // Only read from temporary browser sessionStorage
+    const saved = sessionStorage.getItem('sais_session_user');
+    if (saved) {
       return JSON.parse(saved);
     }
-    // Default to jirapong (Admin) if no user so that the preview is directly interactive
-    return DEFAULT_USERS[0];
+    // Return null to enforce authentication requirement before accessing the app
+    return null;
   } catch (e) {
-    return DEFAULT_USERS[0];
+    return null;
   }
 };
 
 export const setStoredUser = (user: User | null) => {
   try {
+    // NEVER save login session in permanent localStorage
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    localStorage.removeItem(STORAGE_KEYS.SESSION_TIME);
+
     if (user) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
-      localStorage.setItem(STORAGE_KEYS.SESSION_TIME, Date.now().toString());
+      sessionStorage.setItem('sais_session_user', JSON.stringify(user));
     } else {
-      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-      localStorage.removeItem(STORAGE_KEYS.SESSION_TIME);
+      sessionStorage.removeItem('sais_session_user');
+      sessionStorage.clear();
     }
   } catch (e) {
     console.error('Failed to set stored user', e);

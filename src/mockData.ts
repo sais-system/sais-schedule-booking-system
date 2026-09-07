@@ -137,6 +137,14 @@ export const DEFAULT_SETTINGS: WebSettings = {
   gdriveRootFolderUrl: 'https://drive.google.com/drive/folders/',
   gdriveAutoOrganizeByProject: true,
 
+  // Firebase Cloud Configuration (Real production project)
+  firebaseApiKey: 'AIzaSyBOqWqVBTLdr2se2Ktc5SwjXglb55n69go',
+  firebaseAuthDomain: 'sais-schedule-booking.firebaseapp.com',
+  firebaseProjectId: 'sais-schedule-booking',
+  firebaseStorageBucket: 'sais-schedule-booking.firebasestorage.app',
+  firebaseMessagingSenderId: '908596453130',
+  firebaseAppId: '1:908596453130:web:e34a5769730672a1d6a4f3',
+
   // High Concurrency / Capacity Engine (300-500 viewers, 100 users, 10 inspectors, 1 admin)
   maxConcurrentViewers: 500,
   maxDailyBookingsPerInspector: 6,

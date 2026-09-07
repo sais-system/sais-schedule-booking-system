@@ -18,6 +18,7 @@ export interface User {
 export interface Inspector {
   name: string;
   product_lines?: string;
+  order?: number;
 }
 
 export interface Booking {
@@ -31,6 +32,7 @@ export interface Booking {
   job_type?: string;
   area?: string;
   tel?: string;
+  technician_name?: string;
   map_link?: string;
   latitude?: number;
   longitude?: number;
@@ -102,6 +104,20 @@ export interface WebSettings {
   leaveText?: string;
   eventBg?: string;
   eventText?: string;
+  sundayBg?: string;
+  sundayText?: string;
+  todayBg?: string;
+  todayText?: string;
+
+  // Granular Font & Display Configurations
+  fontCardTitle?: number;
+  fontCardSub?: number;
+  fontLeave?: number;
+  fontActivity?: number;
+  fontHoliday?: number;
+  fontDateHeader?: number;
+  fontInspectorHeader?: number;
+  cardMinHeight?: number;
 
   // Google Drive Cloud Storage (15GB free tier integration)
   gdriveRootFolderId?: string;

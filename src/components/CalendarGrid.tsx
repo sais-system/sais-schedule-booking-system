@@ -21,6 +21,7 @@ interface CalendarGridProps {
   specialFontScale: number;
   columnZoom: number;
   isExporting: boolean;
+  selectedInspectorFilter?: string | null;
 }
 
 const formatSafeDate = (val?: string) => {
@@ -90,6 +91,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
   specialFontScale,
   columnZoom,
   isExporting,
+  selectedInspectorFilter,
 }) => {
   const taskMap = useMemo(() => {
     const map: Record<string, Booking[]> = {};
@@ -104,12 +106,26 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
     return map;
   }, [filteredBookings]);
 
-  const numInspectors = inspectors.length || 1;
+  const visibleInspectors = useMemo(() => {
+    let list = inspectors;
+    if (selectedInspectorFilter && selectedInspectorFilter !== 'all') {
+      const found = inspectors.filter((ins) => ins.name === selectedInspectorFilter);
+      list = found.length > 0 ? found : inspectors;
+    }
+    return [...list].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  }, [inspectors, selectedInspectorFilter]);
+
+  const numInspectors = visibleInspectors.length || 1;
+  const isSingleMobileView = numInspectors === 1;
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth || 375 : 375;
-  const baseColWidth = settings?.gridColWidth ? Number(settings.gridColWidth) : Math.floor((screenWidth - 50) / 3);
+  const baseColWidth = isSingleMobileView
+    ? Math.max(260, screenWidth - 65)
+    : (settings?.gridColWidth ? Number(settings.gridColWidth) : Math.floor((screenWidth - 50) / 3));
   const colWidthPx = Math.floor(baseColWidth * columnZoom);
   const gridCols = isExporting
     ? `65px repeat(${numInspectors}, 300px)`
+    : isSingleMobileView
+    ? `50px minmax(260px, 1fr)`
     : `48px repeat(${numInspectors}, ${colWidthPx}px)`;
 
   return (
@@ -118,23 +134,23 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
       className={`calendar-grid ${isExporting ? 'export-mode' : ''}`}
       style={{
         gridTemplateColumns: gridCols,
-        width: 'max-content',
+        width: isSingleMobileView ? '100%' : 'max-content',
         minWidth: '100%',
         backgroundColor: isExporting ? '#cbd5e1' : undefined,
       }}
     >
       <div
         className={`sticky-corner font-bold flex items-center justify-center ${isExporting ? 'min-h-[60px]' : ''}`}
-        style={{ fontSize: `${(isExporting ? 14 : 11) * tableFontScale}px` }}
+        style={{ fontSize: `${(settings.fontDateHeader || (isExporting ? 14 : 11)) * tableFontScale}px` }}
       >
         DATE
       </div>
 
-      {inspectors.map((ins, i) => (
+      {visibleInspectors.map((ins, i) => (
         <div key={i} className={`sticky-top flex items-center justify-center ${isExporting ? 'min-h-[60px] !py-3' : ''}`}>
           <div
             className={`font-bold w-full text-center px-1 ${isExporting ? 'break-words leading-tight' : 'truncate'}`}
-            style={{ fontSize: `${(isExporting ? 16 : 13) * tableFontScale}px` }}
+            style={{ fontSize: `${(settings.fontInspectorHeader || (isExporting ? 16 : 13)) * tableFontScale}px` }}
           >
             {ins.name || '-'}
           </div>
@@ -157,13 +173,13 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                 <>
                   <span
                     className="font-black"
-                    style={{ fontSize: `${(isExporting ? 18 : 15) * tableFontScale}px`, lineHeight: 1.1 }}
+                    style={{ fontSize: `${(settings.fontDateHeader ? settings.fontDateHeader + 3 : (isExporting ? 18 : 15)) * tableFontScale}px`, lineHeight: 1.1 }}
                   >
                     {d.day}
                   </span>
                   <span
                     className="font-bold opacity-90 text-[10px]"
-                    style={{ fontSize: `${(isExporting ? 13 : 10) * tableFontScale}px` }}
+                    style={{ fontSize: `${(settings.fontDateHeader ? Math.max(9, settings.fontDateHeader - 2) : (isExporting ? 13 : 10)) * tableFontScale}px` }}
                   >
                     {d.weekday}
                   </span>
@@ -172,7 +188,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
             </div>
 
             {!d.isEmpty &&
-              inspectors.map((ins, idx) => {
+              visibleInspectors.map((ins, idx) => {
                 const cellKey = `${d.full}_${ins.name}`;
                 const cellTasks = taskMap[cellKey] || [];
                 const hasLeave = cellTasks.some((t) => {
@@ -186,25 +202,36 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                 if (d.isGlobalHoliday && cellTasks.length === 0) cellHolidayClass = 'is-holiday-cell';
                 else if (d.isGlobalEvent && cellTasks.length === 0 && !hasLeave) cellHolidayClass = 'is-global-event-cell';
 
+                const todayLocalString = getLocalDateString(getThaiTime());
+                const isPastDate = d.full < todayLocalString;
+
                 const cellClassName = `grid-cell hover:opacity-90 flex flex-col transition-colors duration-200 ${cellHolidayClass} ${
                   d.isToday ? 'is-today-row' : ''
-                }`;
+                } ${isPastDate && !isAdmin ? 'opacity-85' : ''}`;
 
                 return (
                   <div
                     key={idx}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, d.full, ins.name)}
+                    onDrop={(e) => {
+                      if (isPastDate && !isAdmin) {
+                        return setAlertMsg(
+                          '⚠️ ไม่สามารถย้ายหรือบันทึกคิวตรวจย้อนหลังได้ (ก่อนวันที่ปัจจุบัน)\nเฉพาะสิทธิ์ Admin เท่านั้นที่สามารถลงคิวตรวจ วันลา กิจกรรม หรือวันหยุดย้อนหลังได้'
+                        );
+                      }
+                      handleDrop(e, d.full, ins.name);
+                    }}
                     className={cellClassName}
                     onClick={() => {
                       if (!user) return setAlertMsg('กรุณาเข้าสู่ระบบก่อนทำรายการจองคิวตรวจครับ');
                       if (user.role === 'viewer') return setAlertMsg('บัญชีของคุณมีสิทธิ์เข้าชมเท่านั้น ไม่สามารถเพิ่มคิวงานได้');
                       if (!isAdmin && isBlockedForNormalUser) return;
 
-                      const todayLocalString = getLocalDateString(getThaiTime());
-                      if (d.full < todayLocalString && !isAdmin) {
-                        return setAlertMsg('ไม่สามารถจองคิวงานย้อนหลังได้ครับ');
+                      if (isPastDate && !isAdmin) {
+                        return setAlertMsg(
+                          '⚠️ ไม่สามารถลงจองคิวตรวจย้อนหลังได้ (ก่อนวันที่ปัจจุบัน)\nเฉพาะสิทธิ์ Admin เท่านั้นที่สามารถลงคิวตรวจ วันลา กิจกรรม หรือวันหยุดย้อนหลังได้ เพื่อเป็นข้อมูลอัปเดตและบันทึกย้อนหลัง'
+                        );
                       }
 
                       if (isAdmin) {
@@ -236,8 +263,10 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                             style={{
                               backgroundColor: isCard ? settings.holidayBg || '#D0021B' : undefined,
                               color: settings.holidayText || '#ffffff',
-                              fontSize: `${(isExporting ? 14 : 12) * specialFontScale}px`,
+                              fontSize: `${(settings.fontHoliday || (isExporting ? 14 : 12)) * specialFontScale}px`,
                               whiteSpace: isExporting ? 'normal' : 'inherit',
+                              borderRadius: settings.cardRadius !== undefined ? `${settings.cardRadius}px` : undefined,
+                              padding: settings.cardPadding !== undefined ? `${settings.cardPadding}px` : undefined,
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -275,8 +304,10 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                             style={{
                               backgroundColor: isCard ? customColor : undefined,
                               color: settings.eventText || '#ffffff',
-                              fontSize: `${(isExporting ? 14 : 12) * specialFontScale}px`,
+                              fontSize: `${(settings.fontActivity || (isExporting ? 14 : 12)) * specialFontScale}px`,
                               whiteSpace: isExporting ? 'normal' : 'inherit',
+                              borderRadius: settings.cardRadius !== undefined ? `${settings.cardRadius}px` : undefined,
+                              padding: settings.cardPadding !== undefined ? `${settings.cardPadding}px` : undefined,
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -302,6 +333,12 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                       else if (textLen <= 20) dynamicScale = 1.1;
                       else if (textLen > 35) dynamicScale = 0.85;
 
+                      const customMinHeight = settings.cardMinHeight
+                        ? isSingleCard
+                          ? `${settings.cardMinHeight}px`
+                          : `${Math.max(22, Math.round(settings.cardMinHeight * 0.75))}px`
+                        : undefined;
+
                       return (
                         <div
                           key={task.id || tIdx}
@@ -315,7 +352,13 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                           } ${isSingleCard ? 'h-full min-h-[40px]' : 'flex-1 min-h-[26px] border-b border-black/10'} ${
                             isExporting ? '!overflow-visible !py-2 !min-h-[50px]' : 'overflow-hidden'
                           }`}
-                          style={{ backgroundColor: styleObj.bg, color: styleObj.text }}
+                          style={{
+                            backgroundColor: styleObj.bg,
+                            color: styleObj.text,
+                            borderRadius: settings.cardRadius !== undefined ? `${settings.cardRadius}px` : undefined,
+                            padding: settings.cardPadding !== undefined ? `${settings.cardPadding}px` : undefined,
+                            minHeight: customMinHeight,
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setModal({ type: 'detail', data: task });
@@ -327,7 +370,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                                 className="font-black flex items-center justify-center leading-none"
                                 style={{
                                   fontSize: `${
-                                    (isSingleCard ? (isExporting ? 46 : 36) : isExporting ? 32 : 24) * specialFontScale
+                                    (settings.fontLeave
+                                      ? (isSingleCard ? settings.fontLeave : Math.max(14, Math.round(settings.fontLeave * 0.7)))
+                                      : (isSingleCard ? (isExporting ? 46 : 36) : isExporting ? 32 : 24)) * specialFontScale
                                   }px`,
                                 }}
                               >
@@ -340,7 +385,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                                     <div
                                       className="leading-tight opacity-90 font-bold"
                                       style={{
-                                        fontSize: `${(isExporting ? 12 : 10) * dynamicScale * tableFontScale}px`,
+                                        fontSize: `${(settings.fontCardSub || (isExporting ? 12 : 10)) * dynamicScale * tableFontScale}px`,
                                       }}
                                     >
                                       {task.equipment_no} <span className="opacity-60">/</span> {task.product_line || '-'} <span className="opacity-60">/</span> {task.unit_no}
@@ -348,7 +393,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                                     <div
                                       className="leading-tight font-black mt-[2px] w-full break-words"
                                       style={{
-                                        fontSize: `${(isExporting ? 14 : 11) * dynamicScale * tableFontScale}px`,
+                                        fontSize: `${(settings.fontCardTitle || (isExporting ? 14 : 11)) * dynamicScale * tableFontScale}px`,
                                         whiteSpace: isExporting ? 'normal' : 'inherit',
                                       }}
                                     >
@@ -359,7 +404,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                                   <div
                                     className="whitespace-pre-wrap leading-tight font-black w-full break-words"
                                     style={{
-                                      fontSize: `${(isExporting ? 15 : 12) * dynamicScale * specialFontScale}px`,
+                                      fontSize: `${(settings.fontActivity || (isExporting ? 15 : 12)) * dynamicScale * specialFontScale}px`,
                                       whiteSpace: isExporting ? 'normal' : 'pre-wrap',
                                     }}
                                   >
@@ -372,7 +417,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                                 className="format-single-line font-black leading-tight w-full !text-center"
                                 style={{
                                   fontSize: `${
-                                    (isExporting ? 12 : 10) * dynamicScale * (styleObj.isSpecial ? specialFontScale : tableFontScale)
+                                    (settings.fontCardTitle
+                                      ? Math.max(9, settings.fontCardTitle - 1)
+                                      : isExporting ? 12 : 10) * dynamicScale * (styleObj.isSpecial ? specialFontScale : tableFontScale)
                                   }px`,
                                   whiteSpace: isExporting ? 'normal' : 'nowrap',
                                   overflow: isExporting ? 'visible' : 'hidden',

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Booking, Inspector, User } from '../../types';
 import { Icons } from '../Icons';
+import { getThaiTime, getLocalDateString } from '../../mockData';
 
 interface SpecialModalProps {
   type: 'leaves' | 'events' | 'holidays';
@@ -79,6 +80,15 @@ export const SpecialModal: React.FC<SpecialModalProps> = ({
       return;
     }
 
+    const todayStr = getLocalDateString(getThaiTime());
+    const isAdmin = user?.role === 'admin';
+    if (!isAdmin && datesToCreate.some((d) => d < todayStr)) {
+      setAlertMsg(
+        '⚠️ ไม่สามารถบันทึกข้อมูลย้อนหลังได้ (ก่อนวันที่ปัจจุบัน)\nเฉพาะสิทธิ์ผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลงคิวตรวจ วันลา กิจกรรม หรือวันหยุดย้อนหลังได้ครับ'
+      );
+      return;
+    }
+
     if (type === 'leaves') {
       if (selectedInspectors.length === 0) {
         setAlertMsg('กรุณาเลือกพนักงานที่ต้องการบันทึกวันลา');
@@ -126,8 +136,8 @@ export const SpecialModal: React.FC<SpecialModalProps> = ({
   const currentTheme = titles[type];
 
   return (
-    <div className="modal-card w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-pop flex flex-col max-h-[90vh] bg-white">
-      <div className={`${currentTheme.bg} p-4 text-white flex justify-between items-center z-10`}>
+    <div className="modal-card w-full max-w-md rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl animate-pop flex flex-col max-h-[92dvh] sm:max-h-[90vh] bg-white">
+      <div className={`${currentTheme.bg} p-4 text-white flex justify-between items-center z-10 shrink-0`}>
         <h3 className="font-bold text-base flex items-center gap-2">
           {currentTheme.icon}
           {currentTheme.title}
@@ -137,7 +147,7 @@ export const SpecialModal: React.FC<SpecialModalProps> = ({
         </button>
       </div>
 
-      <div className="p-4 overflow-y-auto custom-scrollbar flex-1 bg-slate-50 space-y-4">
+      <div className="p-4 pb-12 sm:pb-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50 space-y-4 -webkit-overflow-scrolling-touch">
         {/* Creation Box */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
           <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">

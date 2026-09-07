@@ -26,7 +26,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   onSave,
 }) => {
   const [selectedDocType, setSelectedDocType] = useState<DocumentTypeKey>(initialDocType);
-  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user'); // Default to front camera as requested!
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isStartingCamera, setIsStartingCamera] = useState(true);
@@ -45,8 +44,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     }
   };
 
-  // Start camera stream
-  const startCamera = async (facing: 'user' | 'environment') => {
+  // Start camera stream - strictly rear camera (environment)
+  const startCamera = async () => {
     stopStream();
     setIsStartingCamera(true);
     setCameraError(null);
@@ -58,9 +57,9 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: facing,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
         },
         audio: false,
       });
@@ -78,43 +77,45 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
       setIsStartingCamera(false);
     } catch (err: any) {
-      console.warn('Camera start error:', err);
+      console.warn('Rear camera start error:', err);
       setIsStartingCamera(false);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setCameraError('กรุณาอนุญาตให้เข้าถึงกล้อง (Permission Denied) หรือใช้ปุ่มเลือกไฟล์รูปภาพแทน');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setCameraError('ไม่พบอุปกรณ์กล้องบนเครื่องนี้ สามารถเลือกไฟล์รูปภาพจากเครื่องแทนได้ครับ');
+        setCameraError('ไม่พบอุปกรณ์กล้องหลังบนเครื่องนี้ สามารถเลือกไฟล์รูปภาพจากเครื่องแทนได้ครับ');
       } else {
-        setCameraError('ไม่สามารถเริ่มการทำงานของกล้องได้: ' + (err.message || 'โปรดเลือกไฟล์ภาพ'));
+        setCameraError('ไม่สามารถเริ่มการทำงานของกล้องหลังได้: ' + (err.message || 'โปรดเลือกไฟล์ภาพ'));
       }
     }
   };
 
-  // Initialize camera on mount or facingMode change
+  // Initialize camera on mount
   useEffect(() => {
     if (!capturedImage) {
-      startCamera(cameraFacing);
+      startCamera();
     }
     return () => {
       stopStream();
     };
-  }, [cameraFacing, capturedImage]);
+  }, [capturedImage]);
 
-  // Capture photo from video stream
+  // Capture high-quality photo from video stream
   const handleCapture = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
 
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    canvas.width = video.videoWidth || 1920;
+    canvas.height = video.videoHeight || 1080;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // If front camera, un-mirror or draw directly
+    // High quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     setCapturedImage(dataUrl);
     stopStream();
   };
@@ -132,11 +133,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  // Toggle front/back camera
-  const toggleCameraFacing = () => {
-    setCameraFacing((prev) => (prev === 'user' ? 'environment' : 'user'));
   };
 
   // Toggle flashlight
@@ -190,7 +186,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                สแกนเอกสารด้วยกล้องหน้า / อัปโหลด
+                ถ่ายรูป/สแกนด้วยกล้องหลัง (Rear Camera HD)
               </h3>
               <p className="text-[11px] text-slate-400 truncate max-w-[240px]">
                 {bookingTitle || 'แนบรูปภาพเอกสารเข้าสู่ระบบ'}
@@ -243,10 +239,10 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               <div className="flex flex-col gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => startCamera(cameraFacing)}
+                  onClick={() => startCamera()}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-white border border-slate-600"
                 >
-                  ลองเปิดกล้องอีกครั้ง
+                  ลองเปิดกล้องหลังอีกครั้ง
                 </button>
                 <button
                   type="button"
@@ -264,7 +260,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 playsInline
                 autoPlay
                 muted
-                className={`w-full h-full object-cover ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''}`}
+                className="w-full h-full object-cover"
               />
 
               {/* Viewfinder Target Frame Overlay */}
@@ -275,7 +271,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                 </div>
                 <div className="text-center">
                   <span className="bg-slate-900/80 text-blue-200 text-[10px] font-bold px-3 py-1 rounded-full border border-blue-400/40 shadow-sm inline-block">
-                    จัดวางเอกสารให้อยู่ในกรอบนี้ ({cameraFacing === 'user' ? 'กล้องหน้า' : 'กล้องหลัง'})
+                    จัดวางเอกสารให้อยู่ในกรอบนี้ (กล้องหลัง HD)
                   </span>
                 </div>
                 <div className="flex justify-between items-end">
@@ -297,32 +293,27 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
                     แฟลช {torchOn ? 'ON' : 'OFF'}
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={toggleCameraFacing}
-                  className="px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 text-slate-200 text-xs font-bold border border-white/20 flex items-center gap-1.5 backdrop-blur-md shadow-md"
-                  title="สลับกล้องหน้า/กล้องหลัง"
-                >
-                  <Icons.RefreshCw size={14} />
-                  {cameraFacing === 'user' ? 'กล้องหน้า' : 'กล้องหลัง'}
-                </button>
+                <span className="px-2.5 py-1 rounded-xl bg-black/60 text-slate-200 text-[11px] font-bold border border-white/20 backdrop-blur-md">
+                  📷 กล้องหลัง
+                </span>
               </div>
 
               {isStartingCamera && (
                 <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2 z-20">
                   <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs text-slate-300 font-bold">กำลังเปิดกล้อง...</span>
+                  <span className="text-xs text-slate-300 font-bold">กำลังเปิดกล้องหลัง...</span>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Hidden File Input for Gallery / Local Upload */}
+        {/* Hidden File Input for Gallery / Local Upload with rear capture default */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          capture="environment"
           className="hidden"
           onChange={handleFileChange}
         />
