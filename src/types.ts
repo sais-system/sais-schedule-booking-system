@@ -38,7 +38,14 @@ export interface Booking {
   longitude?: number;
   address_detail?: string;
   created_by?: string;
-  status?: 'active' | 'cancelled';
+  status?: 'active' | 'cancelled' | string;
+  sais_status?: string;
+  condition?: string;
+  pre_check?: string;
+  buzzer?: string;
+  generated_date?: string;
+  generated_in_system?: string;
+  remark?: string;
   layout_doc?: 'true' | 'false' | 'pending' | 'verified';
   wiring_doc?: 'true' | 'false' | 'pending' | 'verified';
   precheck_doc?: 'true' | 'false' | 'pending' | 'verified';

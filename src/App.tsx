@@ -52,6 +52,7 @@ import { AuthModal } from './components/Modals/AuthModal';
 import { ActivityModal } from './components/Modals/ActivityModal';
 import { TutorialModal } from './components/Modals/TutorialModal';
 import { CloudShareModal } from './components/Modals/CloudShareModal';
+import { SaisDatabasesModal } from './components/SaisDatabases/SaisDatabasesModal';
 import { useTranslation } from './i18n';
 
 export default function App() {
@@ -66,6 +67,8 @@ export default function App() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'syncing' | 'offline' | 'error'>('connected');
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [showSaisDatabases, setShowSaisDatabases] = useState(false);
+  const [saisDatabasesTab, setSaisDatabasesTab] = useState<'databases' | 'dashboard'>('databases');
 
   // Calendar & navigation states
   const [currentDate, setCurrentDate] = useState<Date>(getThaiTime());
@@ -786,6 +789,37 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 relative shrink-0">
+          {/* SAIS DATABASE & DASHBOARD Launcher */}
+          <div className="flex items-center bg-gradient-to-r from-red-600 to-rose-600 rounded-lg p-0.5 shadow-sm border border-red-500/60 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setSaisDatabasesTab('databases');
+                setShowSaisDatabases(true);
+              }}
+              className="px-2 py-1 sm:px-2.5 sm:py-1 rounded-md text-white hover:bg-white/20 text-xs font-black flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+              title="เปิดฐานข้อมูล SAIS DATABASE (Pending Records)"
+            >
+              <Icons.Database size={13} />
+              <span className="hidden sm:inline">DATABASE</span>
+              <span className="sm:hidden">DB</span>
+            </button>
+            <div className="w-[1px] h-3.5 bg-white/30 my-auto"></div>
+            <button
+              type="button"
+              onClick={() => {
+                setSaisDatabasesTab('dashboard');
+                setShowSaisDatabases(true);
+              }}
+              className="px-2 py-1 sm:px-2.5 sm:py-1 rounded-md text-white hover:bg-white/20 text-xs font-black flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+              title="เปิดแดชบอร์ด SAIS DASHBOARD (Analytics & Charts)"
+            >
+              <Icons.Chart size={13} />
+              <span className="hidden sm:inline">DASHBOARD</span>
+              <span className="sm:hidden">DASH</span>
+            </button>
+          </div>
+
           {/* Cloud & Share Direct URL Button */}
           <button
             type="button"
@@ -2059,11 +2093,26 @@ export default function App() {
           </div>
         )}
         <div
-          className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setCurrentView('dashboard')}
+          className={`nav-item ${showSaisDatabases && saisDatabasesTab === 'databases' ? 'active text-red-600 font-black' : ''}`}
+          onClick={() => {
+            setSaisDatabasesTab('databases');
+            setShowSaisDatabases(true);
+          }}
+          title="เปิด SAIS DATABASE (Pending Records)"
+        >
+          <Icons.Database />
+          <span>DATABASE</span>
+        </div>
+        <div
+          className={`nav-item ${showSaisDatabases && saisDatabasesTab === 'dashboard' ? 'active text-red-600 font-black' : ''}`}
+          onClick={() => {
+            setSaisDatabasesTab('dashboard');
+            setShowSaisDatabases(true);
+          }}
+          title="เปิด SAIS DASHBOARD (Analytics & Charts)"
         >
           <Icons.Chart />
-          <span>สถิติ</span>
+          <span>DASHBOARD</span>
         </div>
         {isAdmin && (
           <div
@@ -2315,6 +2364,21 @@ export default function App() {
             await seedInitialCloudData();
             setSuccessModal('ซิงค์ข้อมูล Cloud Firestore สำเร็จแล้ว 100%');
           }}
+        />
+      )}
+
+      {/* SAIS DATABASES Modal Window (Unified Database & Analytics) */}
+      {showSaisDatabases && (
+        <SaisDatabasesModal
+          bookings={bookings}
+          inspectors={inspectors}
+          users={users}
+          currentUser={currentUser}
+          cloudStatus={cloudStatus}
+          initialTab={saisDatabasesTab}
+          onClose={() => setShowSaisDatabases(false)}
+          onSaveBooking={handleSaveBooking}
+          onDeleteBooking={handleDeleteBooking}
         />
       )}
     </div>

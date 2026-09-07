@@ -1,6 +1,6 @@
 {
   "name": "SAIS Schedule Booking",
-  "description": "ระบบจองคิวตรวจและบริหารจัดการตารางงาน SAIS Schedule Booking System พร้อมการจัดการสถานะและตรวจสอบเอกสาร",
+  "description": "ระบบจองคิวตรวจและบริหารจัดการตารางงาน SAIS พร้อมระบบ SAIS DATABASES (Pending Records & Dashboard Analytics) ครบวงจร",
   "requestFramePermissions": ["camera", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
