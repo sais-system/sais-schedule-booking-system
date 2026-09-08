@@ -52,7 +52,10 @@ import { AuthModal } from './components/Modals/AuthModal';
 import { ActivityModal } from './components/Modals/ActivityModal';
 import { TutorialModal } from './components/Modals/TutorialModal';
 import { CloudShareModal } from './components/Modals/CloudShareModal';
+import { AdminSettingsModal } from './components/Modals/AdminSettingsModal';
 import { SaisDatabasesModal } from './components/SaisDatabases/SaisDatabasesModal';
+import { PullToRefreshHold } from './components/PullToRefreshHold';
+import { EditableText } from './components/EditableText';
 import { useTranslation } from './i18n';
 
 export default function App() {
@@ -130,6 +133,7 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
   const [viewFileUrl, setViewFileUrl] = useState<string | null>(null);
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ msg: string | React.ReactNode; onConfirm: () => void } | null>(null);
@@ -164,7 +168,27 @@ export default function App() {
   const [calFilterProduct, setCalFilterProduct] = useState<string>('All');
   const [calFilterJobType, setCalFilterJobType] = useState<string>('All');
 
+  const gridScrollRef = useRef<HTMLDivElement | null>(null);
+
   const isAdmin = currentUser?.role === 'admin';
+
+  // Handle live custom text save for Admin
+  const handleSaveCustomText = (id: string, newText: string) => {
+    const updatedTexts = { ...(settings.customTexts || {}), [id]: newText };
+    const updated = { ...settings, customTexts: updatedTexts };
+    setSettings(updated);
+    saveSettingsToStorage(updated);
+    firestoreSaveSettings(updated);
+  };
+
+  // Pull down and hold for 2 seconds to refresh Firebase
+  const handlePullRefreshFirebase = async () => {
+    try {
+      await seedInitialCloudData();
+    } catch (err) {
+      console.error('Firebase pull refresh error:', err);
+    }
+  };
 
   // 2. Initialize data on mount and subscribe to Firebase Firestore 100%
   useEffect(() => {
@@ -773,60 +797,173 @@ export default function App() {
         <span className="trash-text">{isTrashHovered ? 'ปล่อยเพื่อลบทิ้ง!' : 'ลากมาทิ้งที่นี่'}</span>
       </div>
 
-      {/* Main Header */}
-      <header className="main-header">
-        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-600 text-white font-black flex items-center justify-center text-xs sm:text-sm shadow-sm shrink-0">
+      {/* TOP ROW 1: SITE TITLE FULL WIDTH BANNER */}
+      <div className="w-full bg-slate-900 text-white px-3 sm:px-4 py-2 border-b border-slate-800/80 flex items-center justify-between z-30 shrink-0 shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-red-600 text-white font-black flex items-center justify-center text-xs sm:text-sm shadow-sm shrink-0">
             S
           </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight leading-tight line-clamp-2 break-words text-white">
-              {settings.appName || 'SAIS BOOKING'}
-            </h1>
-            <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] leading-none mt-0.5">
-              <span
-                className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                  cloudStatus === 'connected'
-                    ? 'bg-emerald-400'
-                    : cloudStatus === 'syncing'
-                    ? 'bg-amber-400 animate-spin'
-                    : 'bg-slate-400'
-                }`}
-              ></span>
-              <span className="text-slate-300 font-medium flex items-center gap-0.5 truncate">
-                <Icons.Flame size={10} className="text-amber-400 shrink-0" />
-                <span className="truncate">
-                  Firebase 100%{' '}
-                  {cloudStatus === 'connected'
-                    ? 'Realtime'
-                    : cloudStatus === 'syncing'
-                    ? 'กำลังซิงค์...'
-                    : 'ออฟไลน์'}
-                </span>
-              </span>
-            </div>
+          <div className="min-w-0 flex-1 flex items-center gap-2">
+            <EditableText
+              id="site_title"
+              defaultText={settings.appName || 'SAIS SCHEDULE BOOKING & LIFT INSPECTION'}
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+              className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white truncate"
+              tag="h1"
+            />
           </div>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 relative shrink-0">
+        {/* Realtime Firebase Badge on Top Right */}
+        <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] bg-slate-800/90 border border-slate-700/60 px-2 sm:px-2.5 py-0.5 rounded-full shrink-0 ml-2">
+          <span
+            className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+              cloudStatus === 'connected'
+                ? 'bg-emerald-400'
+                : cloudStatus === 'syncing'
+                ? 'bg-amber-400 animate-spin'
+                : 'bg-slate-400'
+            }`}
+          />
+          <span className="text-slate-300 font-medium flex items-center gap-0.5">
+            <Icons.Flame size={10} className="text-amber-400 shrink-0" />
+            <span className="hidden sm:inline">Firebase 100%</span>
+            <span>
+              {cloudStatus === 'connected'
+                ? 'Realtime'
+                : cloudStatus === 'syncing'
+                ? 'กำลังซิงค์...'
+                : 'ออฟไลน์'}
+            </span>
+          </span>
+        </div>
+      </div>
+
+      {/* ROW 2: MENU BAR & NAVIGATION STRIP */}
+      <header className="main-header border-b border-slate-700/40 px-2 sm:px-3 py-1.5 flex flex-row justify-between items-center z-20 shrink-0 min-h-[44px]">
+        {/* Navigation Tabs on Line 2 */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0 mr-2">
+          <button
+            onClick={() => setCurrentView('calendar')}
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              currentView === 'calendar'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white/10 text-slate-200 hover:bg-white/20'
+            }`}
+          >
+            <Icons.Calendar size={13} />
+            <EditableText
+              id="menu_calendar"
+              defaultText="ตารางงาน"
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+            />
+          </button>
+
+          <button
+            onClick={() => setCurrentView('search')}
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              currentView === 'search'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white/10 text-slate-200 hover:bg-white/20'
+            }`}
+          >
+            <Icons.Search size={13} />
+            <EditableText
+              id="menu_search"
+              defaultText="ค้นหางาน"
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+            />
+          </button>
+
+          <button
+            onClick={() => {
+              if (!currentUser) return setAlertMsg('กรุณาเข้าสู่ระบบก่อนทำการจองคิวตรวจครับ');
+              if (currentUser.role === 'viewer') return setAlertMsg('บัญชีของคุณมีสิทธิ์เข้าชมเท่านั้น ไม่สามารถเพิ่มคิวงานได้');
+              setModal({ type: 'booking', data: { date: getLocalDateString(getThaiTime()) } });
+            }}
+            className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all flex items-center gap-1 whitespace-nowrap shrink-0 active:scale-95"
+          >
+            <Icons.Plus size={13} />
+            <EditableText
+              id="menu_new_job"
+              defaultText="จองคิวตรวจ"
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+            />
+          </button>
+
+          <button
+            onClick={() => setCurrentView('sais_databases')}
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              currentView === 'sais_databases'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white/10 text-slate-200 hover:bg-white/20'
+            }`}
+          >
+            <Icons.Database size={13} />
+            <EditableText
+              id="menu_databases"
+              defaultText="SAIS DATABASES"
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+            />
+          </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => setCurrentView('admin')}
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                currentView === 'admin'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white/10 text-amber-300 hover:bg-white/20'
+              }`}
+            >
+              <Icons.Shield size={13} />
+              <EditableText
+                id="menu_admin_panel"
+                defaultText="แผงควบคุม Admin"
+                customTexts={settings.customTexts}
+                isAdmin={isAdmin}
+                isLiveEdit={settings.isLiveEdit}
+                onSaveText={handleSaveCustomText}
+              />
+            </button>
+          )}
+        </div>
+
+        {/* Right utility actions */}
+        <div className="flex items-center gap-1 sm:gap-1.5 relative shrink-0">
           {/* Tutorial Simulation & Handbook Button */}
           <button
             type="button"
             onClick={() => setTutorialOpen(true)}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all active:scale-95 border border-amber-400/40 shrink-0"
+            className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold shadow-2xs flex items-center gap-1 transition-all active:scale-95 border border-amber-400/40 shrink-0"
             title={t.tutorialButton}
           >
-            <Icons.GraduationCap size={14} />
-            <span className="hidden md:inline">{t.tutorialButton}</span>
+            <Icons.GraduationCap size={13} />
+            <span className="hidden lg:inline">{t.tutorialButton}</span>
           </button>
 
           {/* Settings Menu Button */}
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
+            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
             title={t.systemSettings}
           >
-            <Icons.Settings size={16} />
+            <Icons.Settings size={15} />
           </button>
 
           {showSettings && (
@@ -954,10 +1091,10 @@ export default function App() {
           {/* Notifications Button */}
           <button
             onClick={() => setShowActivityModal(true)}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors relative"
+            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors relative"
             title="การแจ้งเตือน"
           >
-            <Icons.Bell />
+            <Icons.Bell size={15} />
             {unreadNotifs.length > 0 && <span className="notif-dot animate-pulse"></span>}
           </button>
 
@@ -965,12 +1102,12 @@ export default function App() {
           {currentUser ? (
             <div className="flex items-center gap-1">
               <div
-                className="text-xs font-bold bg-white/20 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-white shadow-xs"
+                className="text-xs font-bold bg-white/20 px-2 py-1 rounded-xl flex items-center gap-1 text-white shadow-xs"
                 title={`${currentUser.full_name || currentUser.username} (${currentUser.role})`}
               >
-                <Icons.User size={13} />
-                <span className="truncate max-w-[75px] sm:max-w-[110px]">{currentUser.username}</span>
-                <span className="text-[9px] bg-red-600 text-white font-mono uppercase px-1.5 py-0.2 rounded font-bold">
+                <Icons.User size={12} />
+                <span className="truncate max-w-[60px] sm:max-w-[90px]">{currentUser.username}</span>
+                <span className="text-[8px] bg-red-600 text-white font-mono uppercase px-1 rounded font-bold">
                   {currentUser.role}
                 </span>
               </div>
@@ -980,15 +1117,15 @@ export default function App() {
                 className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-xl transition-all active:scale-95 cursor-pointer"
                 title="ออกจากระบบ (Logout)"
               >
-                <Icons.LogOut size={14} />
+                <Icons.LogOut size={13} />
               </button>
             </div>
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 shadow-sm"
+              className="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded-xl font-bold text-xs flex items-center gap-1 shadow-sm"
             >
-              <Icons.User /> เข้าสู่ระบบ
+              <Icons.User size={12} /> เข้าสู่ระบบ
             </button>
           )}
         </div>
@@ -998,7 +1135,7 @@ export default function App() {
       <main className="flex-1 overflow-hidden relative">
         {/* VIEW 1: CALENDAR */}
         {currentView === 'calendar' && (
-          <div className="grid-container relative overflow-hidden pb-16">
+          <div className="grid-container relative overflow-hidden">
             <div className="nav-bar bg-white px-3 py-2 border-b flex-shrink-0 z-20 flex justify-between items-center shadow-xs">
               <div className="flex items-center gap-1.5">
                 <button
@@ -1006,7 +1143,15 @@ export default function App() {
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1 transition-colors"
                   title="ปุ่มลัด: ลูกศรซ้าย ←"
                 >
-                  <Icons.ChevronLeft /> ย้อนกลับ
+                  <Icons.ChevronLeft />
+                  <EditableText
+                    id="cal_btn_prev"
+                    defaultText="ย้อนกลับ"
+                    customTexts={settings.customTexts}
+                    isAdmin={isAdmin}
+                    isLiveEdit={settings.isLiveEdit}
+                    onSaveText={handleSaveCustomText}
+                  />
                 </button>
                 <button
                   onClick={jumpToToday}
@@ -1014,7 +1159,14 @@ export default function App() {
                   title="ปุ่มลัด: กดปุ่ม T บนคีย์บอร์ด"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                  วันนี้ (Today)
+                  <EditableText
+                    id="cal_btn_today"
+                    defaultText="วันนี้ (Today)"
+                    customTexts={settings.customTexts}
+                    isAdmin={isAdmin}
+                    isLiveEdit={settings.isLiveEdit}
+                    onSaveText={handleSaveCustomText}
+                  />
                 </button>
               </div>
 
@@ -1034,7 +1186,15 @@ export default function App() {
                 className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1 transition-colors"
                 title="ปุ่มลัด: ลูกศรขวา →"
               >
-                ถัดไป <Icons.ChevronRight />
+                <EditableText
+                  id="cal_btn_next"
+                  defaultText="ถัดไป"
+                  customTexts={settings.customTexts}
+                  isAdmin={isAdmin}
+                  isLiveEdit={settings.isLiveEdit}
+                  onSaveText={handleSaveCustomText}
+                />
+                <Icons.ChevronRight />
               </button>
             </div>
 
@@ -1086,7 +1246,14 @@ export default function App() {
                 {/* Product Line Dropdown */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                    โมเดล:
+                    <EditableText
+                      id="lbl_filter_model"
+                      defaultText="โมเดล:"
+                      customTexts={settings.customTexts}
+                      isAdmin={isAdmin}
+                      isLiveEdit={settings.isLiveEdit}
+                      onSaveText={handleSaveCustomText}
+                    />
                   </span>
                   <select
                     value={calFilterProduct}
@@ -1105,7 +1272,14 @@ export default function App() {
                 {/* Inspector Dropdown */}
                 <div className="flex items-center gap-1.5 flex-1 min-w-[140px] max-w-[240px]">
                   <span className="text-[10px] font-bold text-slate-500 shrink-0">
-                    ผู้ตรวจ:
+                    <EditableText
+                      id="lbl_filter_inspector"
+                      defaultText="ผู้ตรวจ:"
+                      customTexts={settings.customTexts}
+                      isAdmin={isAdmin}
+                      isLiveEdit={settings.isLiveEdit}
+                      onSaveText={handleSaveCustomText}
+                    />
                   </span>
                   <select
                     value={selectedInspectorFilter}
@@ -1132,30 +1306,37 @@ export default function App() {
               </div>
             </div>
 
-            {/* Calendar Table Grid */}
-            <div className="grid-wrapper">
-              <CalendarGrid
-                daysInView={daysInView}
-                inspectors={inspectors}
-                settings={settings}
-                isAdmin={isAdmin}
-                user={currentUser}
-                setModal={setModal}
-                setAlertMsg={setAlertMsg}
-                setQuickAddType={setQuickAddType}
-                handleDrop={handleDrop}
-                handleDragOver={handleDragOver}
-                handleDragLeave={handleDragLeave}
-                handleDragStart={handleDragStart}
-                handleDragEnd={handleDragEnd}
-                filteredBookings={calendarDisplayBookings}
-                tableFontScale={tableFontScale}
-                specialFontScale={specialFontScale}
-                columnZoom={columnZoom}
-                isExporting={isExporting}
-                selectedInspectorFilter={selectedInspectorFilter}
-              />
-            </div>
+            {/* Calendar Table Grid Wrapped in 2-Second Hold Pull-To-Refresh */}
+            <PullToRefreshHold
+              onRefresh={handlePullRefreshFirebase}
+              scrollRef={gridScrollRef}
+              className="flex-1 min-h-0 flex flex-col relative w-full h-full"
+            >
+              <div ref={gridScrollRef} className="grid-wrapper flex-1 min-h-0">
+                <CalendarGrid
+                  daysInView={daysInView}
+                  inspectors={inspectors}
+                  settings={settings}
+                  isAdmin={isAdmin}
+                  user={currentUser}
+                  setModal={setModal}
+                  setAlertMsg={setAlertMsg}
+                  setQuickAddType={setQuickAddType}
+                  handleDrop={handleDrop}
+                  handleDragOver={handleDragOver}
+                  handleDragLeave={handleDragLeave}
+                  handleDragStart={handleDragStart}
+                  handleDragEnd={handleDragEnd}
+                  filteredBookings={calendarDisplayBookings}
+                  tableFontScale={tableFontScale}
+                  specialFontScale={specialFontScale}
+                  columnZoom={columnZoom}
+                  isExporting={isExporting}
+                  selectedInspectorFilter={selectedInspectorFilter}
+                  onSaveCustomText={handleSaveCustomText}
+                />
+              </div>
+            </PullToRefreshHold>
 
             <RealtimeClock lastSyncTime={lastSyncTime} />
           </div>
@@ -1745,6 +1926,20 @@ export default function App() {
                   <span className="font-bold text-xs text-slate-800">จัดการวันกิจกรรม / วันลา / วันหยุดบริษัท</span>
                 </button>
 
+                {/* Advanced Admin Settings & Detailed Configuration Button */}
+                <button
+                  onClick={() => setShowAdminSettingsModal(true)}
+                  className="p-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white rounded-3xl shadow-md border border-blue-500/50 flex flex-col items-center gap-2 hover:opacity-95 transition-all text-center col-span-2"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 text-white flex items-center justify-center">
+                    <Icons.Settings size={24} />
+                  </div>
+                  <span className="font-bold text-xs text-white">⚙️ การตั้งค่าขั้นสูง & ปรับแต่งเว็บไซต์อย่างละเอียด (Advanced Settings)</span>
+                  <span className="text-[11px] text-blue-100">
+                    ตั้งค่าลำดับการแสดงผลผู้ตรวจบนตาราง, ขนาดตัวอักษร, ซูมคอลัมน์, ปรับแต่งสี, โหมดปากกาแก้ไขสด, Firebase Cloud
+                  </span>
+                </button>
+
                 <button
                   onClick={() => setAdminTab('settings')}
                   className="p-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center gap-2.5 hover:border-pink-400 transition-all text-center col-span-2"
@@ -1812,14 +2007,14 @@ export default function App() {
                               setConfirmDialog({
                                 msg: `ยืนยันการลบผู้ใช้ "${u.username}" ออกจากระบบ?`,
                                 onConfirm: () => {
-                                  setConfirmDialog(null);
-                                  const updated = users.filter((x) => x.username !== u.username);
-                                  setUsers(updated);
-                                  saveUsersToStorage(updated);
-                                  firestoreSaveUsers(updated);
-                                  logSystem('DELETE USER', `ลบผู้ใช้ ${u.username}`);
-                                  setSuccessModal('ลบผู้ใช้สำเร็จ');
-                                },
+                                   setConfirmDialog(null);
+                                   const updated = users.filter((x) => x.username !== u.username);
+                                   setUsers(updated);
+                                   saveUsersToStorage(updated);
+                                   firestoreSaveUsers(updated);
+                                   logSystem('DELETE USER', `ลบผู้ใช้ ${u.username}`);
+                                   setSuccessModal('ลบผู้ใช้สำเร็จ');
+                                 },
                               });
                             }}
                             className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
@@ -1838,27 +2033,111 @@ export default function App() {
             {adminTab === 'inspectors' && (
               <div className="space-y-3 animate-pop">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xs font-bold text-slate-800">รายชื่อผู้ตรวจ ({inspectors.length})</h3>
-                  <button
-                    onClick={() => setModal({ type: 'inspector_modal' })}
-                    className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
-                  >
-                    <Icons.Plus /> เพิ่มผู้ตรวจ
-                  </button>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800">รายชื่อผู้ตรวจ ({inspectors.length})</h3>
+                    <p className="text-[11px] text-slate-500">
+                      ปรับลำดับการแสดงผลผู้ตรวจบนตารางได้ทันที (ซ้ายไปขวา)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowAdminSettingsModal(true)}
+                      className="text-xs bg-slate-800 hover:bg-slate-900 text-white font-bold px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
+                    >
+                      <Icons.Settings size={13} /> ตั้งค่าขั้นสูง
+                    </button>
+                    <button
+                      onClick={() => setModal({ type: 'inspector_modal' })}
+                      className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
+                    >
+                      <Icons.Plus /> เพิ่มผู้ตรวจ
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50/70 p-2.5 rounded-xl border border-blue-200 text-xs text-blue-900 font-bold flex items-center gap-2">
+                  <span>💡 ลำดับที่ 1 จะแสดงเป็นคอลัมน์แรกถัดจากวันที่บนตารางปฏิทิน คลิก ▲ หรือ ▼ เพื่อจัดตำแหน่ง</span>
                 </div>
 
                 <div className="space-y-2">
-                  {inspectors.map((ins) => (
+                  {inspectors.map((ins, idx) => (
                     <div
                       key={ins.name}
-                      className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2"
+                      className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2 hover:border-blue-300 transition-colors"
                     >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-xs text-slate-800">{ins.name}</span>
-                        <div className="flex gap-1.5">
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* Order Selector & Up / Down Reordering */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <label className="text-[10px] text-slate-500 font-bold">ลำดับ:</label>
+                            <select
+                              value={idx + 1}
+                              onChange={(e) => {
+                                const toOrder = parseInt(e.target.value);
+                                const targetIdx = toOrder - 1;
+                                if (targetIdx < 0 || targetIdx >= inspectors.length || targetIdx === idx) return;
+                                const newInspectors = [...inspectors];
+                                const [moved] = newInspectors.splice(idx, 1);
+                                newInspectors.splice(targetIdx, 0, moved);
+                                setInspectors(newInspectors);
+                                saveInspectorsToStorage(newInspectors);
+                                firestoreSaveInspectors(newInspectors);
+                              }}
+                              className="text-xs font-black bg-white border border-blue-300 text-blue-700 rounded-lg px-2 py-1 shadow-2xs outline-none cursor-pointer hover:border-blue-500"
+                              title="เลือกลำดับแสดงผลบนตาราง"
+                            >
+                              {inspectors.map((_, orderIdx) => (
+                                <option key={orderIdx + 1} value={orderIdx + 1}>
+                                  {orderIdx + 1}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => {
+                                  if (idx === 0) return;
+                                  const newInspectors = [...inspectors];
+                                  const [moved] = newInspectors.splice(idx, 1);
+                                  newInspectors.splice(idx - 1, 0, moved);
+                                  setInspectors(newInspectors);
+                                  saveInspectorsToStorage(newInspectors);
+                                  firestoreSaveInspectors(newInspectors);
+                                }}
+                                title="เลื่อนขึ้น / ซ้าย"
+                                className="w-6 h-6 rounded-md bg-white hover:bg-blue-100 disabled:opacity-25 border border-slate-300 text-slate-700 font-black text-xs flex items-center justify-center transition-colors"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === inspectors.length - 1}
+                                onClick={() => {
+                                  if (idx === inspectors.length - 1) return;
+                                  const newInspectors = [...inspectors];
+                                  const [moved] = newInspectors.splice(idx, 1);
+                                  newInspectors.splice(idx + 1, 0, moved);
+                                  setInspectors(newInspectors);
+                                  saveInspectorsToStorage(newInspectors);
+                                  firestoreSaveInspectors(newInspectors);
+                                }}
+                                title="เลื่อนลง / ขวา"
+                                className="w-6 h-6 rounded-md bg-white hover:bg-blue-100 disabled:opacity-25 border border-slate-300 text-slate-700 font-black text-xs flex items-center justify-center transition-colors"
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
+
+                          <span className="font-bold text-xs text-slate-800 truncate">{ins.name}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             onClick={() => setModal({ type: 'inspector_modal', data: ins })}
-                            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl"
+                            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors"
+                            title="แก้ไข"
                           >
                             <Icons.Edit />
                           </button>
@@ -1877,7 +2156,8 @@ export default function App() {
                                 },
                               });
                             }}
-                            className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl"
+                            className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
+                            title="ลบ"
                           >
                             <Icons.Trash />
                           </button>
@@ -1995,7 +2275,16 @@ export default function App() {
           }}
         >
           <Icons.Home />
-          <span>ปฏิทิน</span>
+          <span>
+            <EditableText
+              id="nav_calendar"
+              defaultText="ปฏิทิน"
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+            />
+          </span>
         </div>
         <div
           className={`nav-item ${currentView === 'search' ? 'active' : ''}`}
@@ -2005,7 +2294,16 @@ export default function App() {
           }}
         >
           <Icons.Search />
-          <span>ค้นหา</span>
+          <span>
+            <EditableText
+              id="nav_search"
+              defaultText="ค้นหา"
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+            />
+          </span>
         </div>
         {isAdmin && (
           <div
@@ -2016,7 +2314,16 @@ export default function App() {
             }}
           >
             <Icons.FileCheck />
-            <span>ตรวจเอกสาร</span>
+            <span>
+              <EditableText
+                id="nav_documents"
+                defaultText="ตรวจเอกสาร"
+                customTexts={settings.customTexts}
+                isAdmin={isAdmin}
+                isLiveEdit={settings.isLiveEdit}
+                onSaveText={handleSaveCustomText}
+              />
+            </span>
           </div>
         )}
         {currentUser && !isAdmin && currentUser.role !== 'viewer' && (
@@ -2028,7 +2335,16 @@ export default function App() {
             }}
           >
             <Icons.List />
-            <span>งานฉัน</span>
+            <span>
+              <EditableText
+                id="nav_my_bookings"
+                defaultText="งานฉัน"
+                customTexts={settings.customTexts}
+                isAdmin={isAdmin}
+                isLiveEdit={settings.isLiveEdit}
+                onSaveText={handleSaveCustomText}
+              />
+            </span>
           </div>
         )}
         <div
@@ -2040,7 +2356,16 @@ export default function App() {
           title="เปิด SAIS DATABASE (Pending Records)"
         >
           <Icons.Database />
-          <span>DATABASE</span>
+          <span>
+            <EditableText
+              id="nav_database"
+              defaultText="DATABASE"
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+            />
+          </span>
         </div>
         <div
           className={`nav-item ${showSaisDatabases && saisDatabasesTab === 'dashboard' ? 'active text-red-600 font-black' : ''}`}
@@ -2051,7 +2376,16 @@ export default function App() {
           title="เปิด SAIS DASHBOARD (Analytics & Charts)"
         >
           <Icons.Chart />
-          <span>DASHBOARD</span>
+          <span>
+            <EditableText
+              id="nav_dashboard"
+              defaultText="DASHBOARD"
+              customTexts={settings.customTexts}
+              isAdmin={isAdmin}
+              isLiveEdit={settings.isLiveEdit}
+              onSaveText={handleSaveCustomText}
+            />
+          </span>
         </div>
         {isAdmin && (
           <div
@@ -2063,13 +2397,31 @@ export default function App() {
             }}
           >
             <Icons.Shield />
-            <span>จัดการ</span>
+            <span>
+              <EditableText
+                id="nav_admin"
+                defaultText="จัดการ"
+                customTexts={settings.customTexts}
+                isAdmin={isAdmin}
+                isLiveEdit={settings.isLiveEdit}
+                onSaveText={handleSaveCustomText}
+              />
+            </span>
           </div>
         )}
         {currentUser && (
           <div className="nav-item text-red-500 hover:text-red-600" onClick={handleLogout}>
             <Icons.LogOut />
-            <span>ออกระบบ</span>
+            <span>
+              <EditableText
+                id="nav_logout"
+                defaultText="ออกระบบ"
+                customTexts={settings.customTexts}
+                isAdmin={isAdmin}
+                isLiveEdit={settings.isLiveEdit}
+                onSaveText={handleSaveCustomText}
+              />
+            </span>
           </div>
         )}
         {/* Quick minimize toggle button */}
@@ -2341,6 +2693,45 @@ export default function App() {
           onClose={() => setShowSaisDatabases(false)}
           onSaveBooking={handleSaveBooking}
           onDeleteBooking={handleDeleteBooking}
+        />
+      )}
+
+      {/* Advanced Admin Settings & Detailed Website Configuration Modal */}
+      {showAdminSettingsModal && (
+        <AdminSettingsModal
+          settings={settings}
+          inspectors={inspectors}
+          users={users}
+          bookings={bookings}
+          currentUser={currentUser}
+          onClose={() => setShowAdminSettingsModal(false)}
+          onSaveSettings={(newSettings) => {
+            setSettings(newSettings);
+            saveSettingsToStorage(newSettings);
+            firestoreSaveSettings(newSettings);
+            setSuccessModal('บันทึกการตั้งค่าเว็บไซต์อย่างละเอียดสำเร็จ');
+          }}
+          onSaveInspectors={(newInspectors) => {
+            setInspectors(newInspectors);
+            saveInspectorsToStorage(newInspectors);
+            firestoreSaveInspectors(newInspectors);
+            setSuccessModal('บันทึกลำดับผู้ตรวจบนตารางสำเร็จ');
+          }}
+          onSaveUsers={(newUsers) => {
+            setUsers(newUsers);
+            saveUsersToStorage(newUsers);
+            firestoreSaveUsers(newUsers);
+            setSuccessModal('บันทึกข้อมูลผู้ใช้สำเร็จ');
+          }}
+          onOpenCloudSync={() => setCloudShareOpen(true)}
+          setAlertMsg={setAlertMsg}
+          columnZoom={columnZoom}
+          setColumnZoom={setColumnZoom}
+          tableFontScale={tableFontScale}
+          setTableFontScale={setTableFontScale}
+          specialFontScale={specialFontScale}
+          setSpecialFontScale={setSpecialFontScale}
+          onExportJPG={handleExportJPG}
         />
       )}
     </div>

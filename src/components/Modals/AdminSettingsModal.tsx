@@ -50,7 +50,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   onExportJPG,
 }) => {
   const { lang } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'system' | 'concurrency' | 'gdrive' | 'firebase' | 'inspectors' | 'users' | 'display'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'concurrency' | 'firebase' | 'inspectors' | 'users' | 'display'>('system');
 
   // Form states for settings
   const [formData, setFormData] = useState<WebSettings>({
@@ -364,18 +364,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('gdrive')}
-            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'gdrive'
-                ? 'border-amber-500 text-amber-600 bg-white rounded-t-xl shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Icons.Cloud /> {lang === 'th' ? 'Google Drive' : 'Drive'}
-            {isGdriveLocked ? <span className="text-[10px]">🔒</span> : <span className="text-[10px]">🔓</span>}
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveTab('concurrency')}
             className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'concurrency'
@@ -474,6 +462,28 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       className="w-4 h-4 rounded text-blue-600"
                     />
                     <span>บังคับแนบเอกสาร Drawing/Wiring ครบก่อนจึงจะกดยืนยันจองคิวได้</span>
+                  </label>
+                </div>
+
+                <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 flex items-center justify-between">
+                  <div>
+                    <h5 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <Icons.Edit size={14} /> โหมดปากกาแก้ไขข้อความหน้าเว็บแบบสด (Live Text Edit)
+                    </h5>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      เมื่อเปิดใช้งาน จะปรากฏปุ่มปากกาบนข้อความและหัวข้อต่างๆ บนหน้าเว็บ ให้แอดมินคลิกแก้ไขคำได้ทันที
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.isLiveEdit ?? false}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, isLiveEdit: e.target.checked }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                   </label>
                 </div>
               </div>
@@ -1189,118 +1199,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: GOOGLE DRIVE CLOUD STORAGE (WITH PASSWORD SECURITY LOCK) */}
-          {activeTab === 'gdrive' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <h4 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                    <Icons.Cloud size={16} className="text-amber-600" />
-                    ระบบจัดเก็บเอกสารบน Google Drive Cloud (15GB ฟรีระยะยาว)
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    {isGdriveLocked ? (
-                      <span className="text-[10px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-bold flex items-center gap-1 border border-red-200">
-                        🔒 ป้องกันการแก้ไข (Locked)
-                      </span>
-                    ) : (
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold flex items-center gap-1 border border-emerald-200">
-                        🔓 ปลดล็อกแล้ว (Editable)
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  เชื่อมต่อโฟลเดอร์ Google Drive เพื่อจัดเก็บไฟล์ Drawing (PDF), แผนผังวงจรไฟฟ้า (Wiring), เอกสาร Pre-check และภาพถ่ายสภาพหน้างาน 6 จุด
-                </p>
-
-                <div className="pt-1">
-                  {isGdriveLocked ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUnlockTarget('gdrive');
-                        setUnlockPasswordInput('');
-                        setUnlockError('');
-                      }}
-                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                    >
-                      <Icons.Lock size={14} /> ปลดล็อกด้วยรหัสผ่านแอดมินเพื่อแก้ไข
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsGdriveLocked(true)}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                    >
-                      <Icons.Check size={14} /> ล็อกการตั้งค่าความปลอดภัยทันที
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-                    {isGdriveLocked && <span>🔒</span>} Google Drive Root Folder ID หรือ ลิงก์โฟลเดอร์ส่วนกลาง:
-                  </label>
-                  <input
-                    type="text"
-                    disabled={isGdriveLocked}
-                    readOnly={isGdriveLocked}
-                    value={formData.gdriveRootFolderId || ''}
-                    onChange={(e) =>
-                      setFormData({ ...formData, gdriveRootFolderId: e.target.value })
-                    }
-                    placeholder="เช่น 1_SAIS_DOCS_ROOT"
-                    className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
-                      isGdriveLocked
-                        ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300'
-                        : 'bg-white text-slate-800 font-bold border-blue-400 focus:ring-2 focus:ring-blue-500'
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-                    {isGdriveLocked && <span>🔒</span>} URL หน้าเว็บ Google Drive ประจำโครงการ (Shared Folder URL):
-                  </label>
-                  <input
-                    type="text"
-                    disabled={isGdriveLocked}
-                    readOnly={isGdriveLocked}
-                    value={formData.gdriveRootFolderUrl || ''}
-                    onChange={(e) =>
-                      setFormData({ ...formData, gdriveRootFolderUrl: e.target.value })
-                    }
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
-                      isGdriveLocked
-                        ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300'
-                        : 'bg-white text-slate-800 font-bold border-blue-400 focus:ring-2 focus:ring-blue-500'
-                    }`}
-                  />
-                </div>
-
-                <div className="pt-2 border-t border-slate-200">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-                    <input
-                      type="checkbox"
-                      disabled={isGdriveLocked}
-                      checked={formData.gdriveAutoOrganizeByProject ?? true}
-                      onChange={(e) =>
-                        setFormData({ ...formData, gdriveAutoOrganizeByProject: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded text-blue-600 disabled:opacity-50"
-                    />
-                    <span>สร้างโฟลเดอร์ย่อยตามชื่อโครงการและเลข Equipment อัตโนมัติ</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: CONCURRENCY & CAPACITY ENGINE */}
+          {/* TAB 4: CONCURRENCY & CAPACITY ENGINE */}
           {activeTab === 'concurrency' && (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200">

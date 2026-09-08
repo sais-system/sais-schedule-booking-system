@@ -46,11 +46,11 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ url, title, 
         <div className="bg-slate-900 text-white px-4 py-3 flex justify-between items-center z-10 flex-shrink-0 border-b border-slate-800">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="w-7 h-7 rounded-lg bg-blue-600/30 text-blue-400 flex items-center justify-center shrink-0">
-              {isGoogleDrive ? <Icons.Cloud size={16} /> : isPdf ? <Icons.FileText size={16} /> : <Icons.Image size={16} />}
+              {isPdf ? <Icons.FileText size={16} /> : <Icons.Image size={16} />}
             </div>
             <div className="min-w-0">
               <span className="font-bold text-xs sm:text-sm block truncate">
-                {title || (isGoogleDrive ? 'เอกสาร Google Drive' : isPdf ? 'เอกสาร PDF' : 'ภาพถ่ายสภาพหน้างาน')}
+                {title || (isPdf ? 'เอกสาร PDF' : 'ภาพถ่ายสภาพหน้างาน')}
               </span>
               {urls.length > 1 && (
                 <span className="text-[10px] text-slate-400 block">

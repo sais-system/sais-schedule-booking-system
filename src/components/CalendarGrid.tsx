@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Booking, Inspector, WebSettings, DayInfo, User } from '../types';
 import { getThaiTime, getLocalDateString } from '../mockData';
+import { EditableText } from './EditableText';
 
 interface CalendarGridProps {
   daysInView: DayInfo[];
@@ -22,6 +23,7 @@ interface CalendarGridProps {
   columnZoom: number;
   isExporting: boolean;
   selectedInspectorFilter?: string | null;
+  onSaveCustomText?: (id: string, text: string) => void;
 }
 
 const formatSafeDate = (val?: string) => {
@@ -92,6 +94,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
   columnZoom,
   isExporting,
   selectedInspectorFilter,
+  onSaveCustomText,
 }) => {
   const taskMap = useMemo(() => {
     const map: Record<string, Booking[]> = {};
@@ -143,7 +146,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
         className={`sticky-corner font-bold flex items-center justify-center ${isExporting ? 'min-h-[60px]' : ''}`}
         style={{ fontSize: `${(settings.fontDateHeader || (isExporting ? 14 : 11)) * tableFontScale}px` }}
       >
-        DATE
+        <EditableText
+          id="table_corner_date"
+          defaultText="DATE"
+          customTexts={settings.customTexts}
+          isAdmin={isAdmin}
+          isLiveEdit={settings.isLiveEdit}
+          onSaveText={onSaveCustomText}
+        />
       </div>
 
       {visibleInspectors.map((ins, i) => (

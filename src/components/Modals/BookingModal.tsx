@@ -4,8 +4,16 @@ import { Icons } from '../Icons';
 import { CameraScannerModal, DocumentTypeKey } from './CameraScannerModal';
 import { MapPickerModal } from './MapPickerModal';
 import { useTranslation } from '../../i18n';
-import { processDriveUpload } from '../../utils/googleDrive';
 import { getThaiTime, getLocalDateString } from '../../mockData';
+
+const readFileAsDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 const PRODUCT_COLORS: Record<string, string> = {
   'ES1': 'bg-blue-500',
@@ -107,7 +115,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   if (!hasWiring) missingDocs.push('Wiring');
   if (!hasPrecheck) missingDocs.push('Pre-check');
 
-  // Direct file upload to Google Drive cloud format (supporting PDF and Images)
+  // Direct file upload (supporting PDF and Images)
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     docKey: keyof typeof docUrls,
@@ -123,8 +131,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         uploadPromises.push(
-          processDriveUpload(file, `Job_${equipmentNo || siteName || 'Docs'}`).then((res) => ({
-            url: res.url,
+          readFileAsDataUrl(file).then((url) => ({
+            url,
             name: file.name,
           }))
         );

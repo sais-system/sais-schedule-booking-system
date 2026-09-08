@@ -3,7 +3,15 @@ import { Booking, User } from '../../types';
 import { Icons } from '../Icons';
 import { CameraScannerModal, DocumentTypeKey } from './CameraScannerModal';
 import { useTranslation } from '../../i18n';
-import { processDriveUpload } from '../../utils/googleDrive';
+
+const readFileAsDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 const PRODUCT_COLORS: Record<string, string> = {
   'ES1': 'bg-blue-500',
@@ -115,7 +123,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
     }
 
     onUpdateBooking(updated);
-    setUploadToast(`อัปโหลดเอกสาร ${docKey.toUpperCase()} ขึ้น Google Drive สำเร็จ`);
+    setUploadToast(`แนบเอกสาร ${docKey.toUpperCase()} สำเร็จแล้ว`);
     setTimeout(() => setUploadToast(null), 3000);
   };
 
@@ -131,16 +139,16 @@ export const DetailModal: React.FC<DetailModalProps> = ({
     fileInputRef.current?.click();
   };
 
-  // Handle direct file input selection (PDF and Images auto uploaded to Drive)
+  // Handle direct file input selection (PDF and Images)
   const handleDirectFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadToast(`กำลังอัปโหลดไฟล์ ${file.name} ไปยัง Google Drive...`);
+    setUploadToast(`กำลังประมวลผลไฟล์ ${file.name}...`);
 
     try {
-      const driveRes = await processDriveUpload(file, `Job_${booking.equipment_no || booking.site_name || 'Docs'}`);
-      handleSaveScannedDocument(uploadTargetKey, driveRes.url, file.name);
+      const dataUrl = await readFileAsDataUrl(file);
+      handleSaveScannedDocument(uploadTargetKey, dataUrl, file.name);
     } catch (err) {
       setUploadToast('อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
       setTimeout(() => setUploadToast(null), 3000);
