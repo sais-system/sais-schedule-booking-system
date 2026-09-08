@@ -14,16 +14,16 @@ export const getLocalDateString = (dateObj: Date): string => {
 };
 
 export const DEFAULT_INSPECTORS: Inspector[] = [
-  { name: 'สมศักดิ์', product_lines: 'ES1, 3300, 5500, S-villas, ES2' },
-  { name: 'วิชัย', product_lines: 'ES1, 3300, ES5/ES5.1, MOR-R' },
-  { name: 'จิราพงษ์', product_lines: 'ES1, 3300, 5500, S7R4, Flex7, ESC/MW' },
-  { name: 'อนุสรณ์', product_lines: 'ES1, 3300, S-villas, MOD-T' },
-  { name: 'ธีรเดช', product_lines: 'ES1, 3300, 5500, ES3' },
-  { name: 'ประเสริฐ', product_lines: 'ES1, 3300, 5500, S-villas' },
-  { name: 'กิตติศักดิ์', product_lines: 'ES1, 3300, ES2, MOD-T' },
-  { name: 'ณัฐพงษ์', product_lines: 'ES1, 3300, 5500, Flex7' },
-  { name: 'ชาญชัย', product_lines: 'ES1, 3300, S7R4, ESC/MW' },
-  { name: 'เอกราช', product_lines: 'ES1, 3300, 5500, MOR-R' },
+  { name: 'สมศักดิ์', product_lines: 'ES1, 3300, 5500, S-villas, ES2', order: 1 },
+  { name: 'วิชัย', product_lines: 'ES1, 3300, ES5/ES5.1, MOR-R', order: 2 },
+  { name: 'จิราพงษ์', product_lines: 'ES1, 3300, 5500, S7R4, Flex7, ESC/MW', order: 3 },
+  { name: 'อนุสรณ์', product_lines: 'ES1, 3300, S-villas, MOD-T', order: 4 },
+  { name: 'ธีรเดช', product_lines: 'ES1, 3300, 5500, ES3', order: 5 },
+  { name: 'ประเสริฐ', product_lines: 'ES1, 3300, 5500, S-villas', order: 6 },
+  { name: 'กิตติศักดิ์', product_lines: 'ES1, 3300, ES2, MOD-T', order: 7 },
+  { name: 'ณัฐพงษ์', product_lines: 'ES1, 3300, 5500, Flex7', order: 8 },
+  { name: 'ชาญชัย', product_lines: 'ES1, 3300, S7R4, ESC/MW', order: 9 },
+  { name: 'เอกราช', product_lines: 'ES1, 3300, 5500, MOR-R', order: 10 },
 ];
 
 export const DEFAULT_USERS: User[] = [

@@ -37,10 +37,24 @@ export const InspectorModal: React.FC<InspectorModalProps> = ({
     return inspector.product_lines.split(',').map((s) => s.trim()).filter(Boolean);
   });
 
+  const [customLineInput, setCustomLineInput] = useState('');
+
+  // Combined product lines list including standard lines and any existing/new custom ones
+  const availableLines = Array.from(new Set([...ALL_PRODUCT_LINES, ...selectedCerts]));
+
   const toggleCert = (pl: string) => {
     setSelectedCerts((prev) =>
       prev.includes(pl) ? prev.filter((p) => p !== pl) : [...prev, pl]
     );
+  };
+
+  const handleAddCustomLine = () => {
+    const val = customLineInput.trim();
+    if (!val) return;
+    if (!selectedCerts.includes(val)) {
+      setSelectedCerts((prev) => [...prev, val]);
+    }
+    setCustomLineInput('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -89,34 +103,39 @@ export const InspectorModal: React.FC<InspectorModalProps> = ({
           />
         </div>
 
-        <div className="bg-indigo-50/60 p-3.5 rounded-2xl border border-indigo-100 space-y-2">
+        <div className="bg-indigo-50/60 p-3.5 rounded-2xl border border-indigo-100 space-y-2.5">
           <div className="flex justify-between items-center">
-            <label className="text-xs font-bold text-indigo-950">กำหนดสิทธิ์รับงาน (Product Line)</label>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-bold text-indigo-950">กำหนดสิทธิ์รับงาน (Product Line)</label>
+              <span className="text-[10px] bg-indigo-200/80 text-indigo-800 font-bold px-1.5 py-0.2 rounded-full">
+                เลือก {selectedCerts.length} รุ่น
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => {
-                if (selectedCerts.length === ALL_PRODUCT_LINES.length) setSelectedCerts([]);
-                else setSelectedCerts([...ALL_PRODUCT_LINES]);
+                if (selectedCerts.length === availableLines.length) setSelectedCerts([]);
+                else setSelectedCerts([...availableLines]);
               }}
-              className="text-[10px] text-indigo-600 font-bold hover:underline"
+              className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer"
             >
-              {selectedCerts.length === ALL_PRODUCT_LINES.length ? 'ล้างทั้งหมด' : 'เลือกทั้งหมด'}
+              {selectedCerts.length === availableLines.length ? 'ล้างทั้งหมด' : 'เลือกทั้งหมด'}
             </button>
           </div>
 
           <p className="text-[10px] text-indigo-600 leading-tight">
-            ผู้ตรวจจะสามารถรับงานตรวจได้เฉพาะรุ่นลิฟต์/บันไดเลื่อนที่ติ๊กเลือกไว้เท่านั้น
+            ผู้ตรวจจะสามารถรับงานตรวจได้เฉพาะรุ่นที่ติ๊กเลือกไว้เท่านั้น (มีผลต่อตัวเลือก Product Line ในหน้าจองงาน)
           </p>
 
-          <div className="grid grid-cols-2 gap-2 pt-1 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-            {ALL_PRODUCT_LINES.map((pl) => {
+          <div className="grid grid-cols-2 gap-2 pt-1 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+            {availableLines.map((pl) => {
               const checked = selectedCerts.includes(pl);
               return (
                 <label
                   key={pl}
                   className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
                     checked
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-200'
                   }`}
                 >
@@ -124,12 +143,36 @@ export const InspectorModal: React.FC<InspectorModalProps> = ({
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleCert(pl)}
-                    className="w-3.5 h-3.5 accent-white rounded cursor-pointer"
+                    className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
                   />
                   <span className="truncate">{pl}</span>
                 </label>
               );
             })}
+          </div>
+
+          {/* Quick custom product line add */}
+          <div className="pt-1 flex items-center gap-1.5">
+            <input
+              type="text"
+              value={customLineInput}
+              onChange={(e) => setCustomLineInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddCustomLine();
+                }
+              }}
+              placeholder="+ พิมพ์รุ่นอื่น เช่น 7000, Schindler Ahead"
+              className="flex-1 text-[11px] p-2 rounded-xl border border-indigo-200 bg-white placeholder-slate-400 font-medium outline-none focus:border-indigo-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddCustomLine}
+              className="px-2.5 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition-colors shrink-0"
+            >
+              + เพิ่มรุ่น
+            </button>
           </div>
         </div>
 

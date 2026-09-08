@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, Inspector, User } from '../../types';
 import { Icons } from '../Icons';
 import { CameraScannerModal, DocumentTypeKey } from './CameraScannerModal';
 import { MapPickerModal } from './MapPickerModal';
 import { useTranslation } from '../../i18n';
 import { getThaiTime, getLocalDateString } from '../../mockData';
+import { EditableText } from '../EditableText';
 
 const readFileAsDataUrl = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -79,6 +80,26 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [targetInspector, setTargetInspector] = useState(
     data?.inspector_name || (inspectors[0]?.name || '')
   );
+
+  // Filter product lines based on selected inspector's certificate
+  const currentInspectorObj = inspectors.find((i) => i.name === targetInspector);
+  const certifiedLines = useMemo(() => {
+    if (!currentInspectorObj || !currentInspectorObj.product_lines) {
+      return Object.keys(PRODUCT_COLORS).filter((k) => k !== 'อื่นๆโปรดระบุ');
+    }
+    const lines = currentInspectorObj.product_lines
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return lines.length > 0 ? lines : Object.keys(PRODUCT_COLORS).filter((k) => k !== 'อื่นๆโปรดระบุ');
+  }, [currentInspectorObj]);
+
+  // Sync selected productLine when inspector changes or if current line is uncertified
+  useEffect(() => {
+    if (certifiedLines.length > 0 && !certifiedLines.includes(productLine) && productLine !== 'อื่นๆโปรดระบุ') {
+      setProductLine(certifiedLines[0]);
+    }
+  }, [targetInspector, certifiedLines]);
 
   // Document URLs and metadata
   const [docUrls, setDocUrls] = useState({
@@ -290,14 +311,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center pr-14 shrink-0">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <Icons.FileCheck />
-            {isEditing ? 'แก้ไขคิวงานตรวจ' : 'จองคิวงานตรวจ SAIS'}
+            <EditableText
+              id={isEditing ? 'booking_title_edit' : 'booking_title_new'}
+              defaultText={isEditing ? 'แก้ไขคิวงานตรวจ' : 'จองคิวงานตรวจ SAIS'}
+            />
           </h3>
           <button
             type="button"
             onClick={() => setShowHelp(!showHelp)}
-            className="text-xs bg-blue-50 text-blue-600 font-bold px-2.5 py-1 rounded-full border border-blue-200 flex items-center gap-1 shadow-sm"
+            className="text-xs bg-blue-50 text-blue-600 font-bold px-2.5 py-1 rounded-full border border-blue-200 flex items-center gap-1 shadow-sm cursor-pointer"
           >
-            <Icons.HelpCircle /> วิธีใช้งาน
+            <Icons.HelpCircle />
+            <EditableText id="booking_btn_help" defaultText="วิธีใช้งาน" />
           </button>
         </div>
 
@@ -435,10 +460,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               )}
 
               {/* Product Line & Job Type */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 mb-1 block">
-                    Product Line <span className="text-red-500">*</span>
+                  <label className="text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>
+                      <EditableText id="booking_label_product_line" defaultText="Product Line" />{' '}
+                      <span className="text-red-500">*</span>
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-normal">
+                      (กรองตาม Certificate)
+                    </span>
                   </label>
                   <select
                     value={productLine}
@@ -446,17 +477,26 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     required
                     className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-700 outline-none focus:border-blue-400"
                   >
-                    {Object.keys(PRODUCT_COLORS).map((key) => (
+                    {certifiedLines.map((key) => (
                       <option key={key} value={key}>
                         {key}
                       </option>
                     ))}
+                    <option value="อื่นๆโปรดระบุ">อื่นๆโปรดระบุ...</option>
                   </select>
+                  {/* Certificate Filter Status Indicator */}
+                  <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    <Icons.Check size={11} className="text-emerald-600 shrink-0" />
+                    <span className="truncate">
+                      Certificate {targetInspector || 'ผู้ตรวจ'}: {certifiedLines.join(', ')}
+                    </span>
+                  </div>
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 mb-1 block">
-                    ประเภทงาน <span className="text-red-500">*</span>
+                    <EditableText id="booking_label_job_type" defaultText="ประเภทงาน" />{' '}
+                    <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={jobType}
@@ -838,11 +878,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 }`}
               >
                 <Icons.Check />
-                {isEditing
-                  ? 'บันทึกการแก้ไขคิวงาน'
-                  : hasAllRequiredDocs
-                  ? 'ยืนยันการจองคิวตรวจ (เอกสารครบถ้วน)'
-                  : `กรุณาแนบเอกสารให้ครบทั้ง 3 รายการก่อนจอง (ขาด ${missingDocs.join(', ')})`}
+                {isEditing ? (
+                  <EditableText id="booking_btn_submit_edit" defaultText="บันทึกการแก้ไขคิวงาน" />
+                ) : hasAllRequiredDocs ? (
+                  <EditableText id="booking_btn_submit_confirm" defaultText="ยืนยันการจองคิวตรวจ (เอกสารครบถ้วน)" />
+                ) : (
+                  <span>กรุณาแนบเอกสารให้ครบทั้ง 3 รายการก่อนจอง (ขาด {missingDocs.join(', ')})</span>
+                )}
               </button>
             </form>
           </div>

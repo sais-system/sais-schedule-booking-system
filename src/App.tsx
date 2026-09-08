@@ -27,6 +27,7 @@ import {
 } from './storage';
 import {
   firestoreSaveBooking,
+  firestoreSaveBookings,
   firestoreDeleteBooking,
   firestoreSaveInspectors,
   firestoreSaveUsers,
@@ -55,8 +56,23 @@ import { CloudShareModal } from './components/Modals/CloudShareModal';
 import { AdminSettingsModal } from './components/Modals/AdminSettingsModal';
 import { SaisDatabasesModal } from './components/SaisDatabases/SaisDatabasesModal';
 import { PullToRefreshHold } from './components/PullToRefreshHold';
-import { EditableText } from './components/EditableText';
+import { EditableText, LiveEditProvider } from './components/EditableText';
 import { useTranslation } from './i18n';
+
+const PRODUCT_BADGE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  ES1: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  '3300': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+  '5500': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+  'ES5/ES5.1': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' },
+  'S-villas': { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
+  ES2: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+  ES3: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+  'MOR-R': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+  'MOD-T': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+  S7R4: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+  Flex7: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
+  'ESC/MW': { bg: 'bg-lime-50', text: 'text-lime-800', border: 'border-lime-200' },
+};
 
 export default function App() {
   const { t, lang, setLanguage } = useTranslation();
@@ -152,6 +168,11 @@ export default function App() {
   const [searchFilterArea, setSearchFilterArea] = useState('All');
   const [searchInspector, setSearchInspector] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Inspector Management States
+  const [newInsInlineName, setNewInsInlineName] = useState('');
+  const [newInsInlineLines, setNewInsInlineLines] = useState('ES1, 3300, 5500, S-villas');
+  const [inspectorSearchQuery, setInspectorSearchQuery] = useState('');
 
   // Dashboard filters
   const [dashYear, setDashYear] = useState(getThaiTime().getFullYear().toString());
@@ -768,21 +789,29 @@ export default function App() {
   }
 
   return (
-    <div
-      className="app-container"
-      style={
-        {
-          '--app-bg': settings.appBg || '#f8fafc',
-          '--header-bg': settings.headerBg || '#1e293b',
-          '--header-text': settings.headerText || '#ffffff',
-          '--table-header-bg': settings.tableHeaderBg || '#1e293b',
-          '--table-header-text': settings.tableHeaderText || '#ffffff',
-          '--table-border': settings.tableBorder || '#cbd5e1',
-          '--card-radius': `${settings.cardRadius || 6}px`,
-          '--card-padding': `${settings.cardPadding || 4}px`,
-        } as React.CSSProperties
-      }
+    <LiveEditProvider
+      value={{
+        customTexts: settings.customTexts,
+        isAdmin,
+        isLiveEdit: settings.isLiveEdit,
+        onSaveText: handleSaveCustomText,
+      }}
     >
+      <div
+        className="app-container"
+        style={
+          {
+            '--app-bg': settings.appBg || '#f8fafc',
+            '--header-bg': settings.headerBg || '#1e293b',
+            '--header-text': settings.headerText || '#ffffff',
+            '--table-header-bg': settings.tableHeaderBg || '#1e293b',
+            '--table-header-text': settings.tableHeaderText || '#ffffff',
+            '--table-border': settings.tableBorder || '#cbd5e1',
+            '--card-radius': `${settings.cardRadius || 6}px`,
+            '--card-padding': `${settings.cardPadding || 4}px`,
+          } as React.CSSProperties
+        }
+      >
       {/* Trash Dropzone for Drag-to-delete */}
       <div
         className={`trash-dropzone ${isDragging ? 'visible' : ''} ${isTrashHovered ? 'hovered' : ''}`}
@@ -797,13 +826,14 @@ export default function App() {
         <span className="trash-text">{isTrashHovered ? 'ปล่อยเพื่อลบทิ้ง!' : 'ลากมาทิ้งที่นี่'}</span>
       </div>
 
-      {/* TOP ROW 1: SITE TITLE FULL WIDTH BANNER */}
-      <div className="w-full bg-slate-900 text-white px-3 sm:px-4 py-2 border-b border-slate-800/80 flex items-center justify-between z-30 shrink-0 shadow-xs">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+      {/* TOP HEADER: SINGLE CLEAN ROW (Site Title, Cloud Status, Tutorial, Settings, User Profile) */}
+      <header className="main-header border-b border-slate-800/80 px-2.5 sm:px-4 py-2 flex flex-row items-center justify-between z-30 shrink-0 min-h-[46px] bg-slate-900 text-white shadow-xs">
+        {/* Left: App Logo & Site Title */}
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 mr-2">
           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-red-600 text-white font-black flex items-center justify-center text-xs sm:text-sm shadow-sm shrink-0">
             S
           </div>
-          <div className="min-w-0 flex-1 flex items-center gap-2">
+          <div className="min-w-0 flex items-center gap-2">
             <EditableText
               id="site_title"
               defaultText={settings.appName || 'SAIS SCHEDULE BOOKING & LIFT INSPECTION'}
@@ -815,133 +845,30 @@ export default function App() {
               tag="h1"
             />
           </div>
-        </div>
 
-        {/* Realtime Firebase Badge on Top Right */}
-        <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] bg-slate-800/90 border border-slate-700/60 px-2 sm:px-2.5 py-0.5 rounded-full shrink-0 ml-2">
-          <span
-            className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-              cloudStatus === 'connected'
-                ? 'bg-emerald-400'
-                : cloudStatus === 'syncing'
-                ? 'bg-amber-400 animate-spin'
-                : 'bg-slate-400'
-            }`}
-          />
-          <span className="text-slate-300 font-medium flex items-center gap-0.5">
-            <Icons.Flame size={10} className="text-amber-400 shrink-0" />
-            <span className="hidden sm:inline">Firebase 100%</span>
-            <span>
-              {cloudStatus === 'connected'
-                ? 'Realtime'
-                : cloudStatus === 'syncing'
-                ? 'กำลังซิงค์...'
-                : 'ออฟไลน์'}
-            </span>
-          </span>
-        </div>
-      </div>
-
-      {/* ROW 2: MENU BAR & NAVIGATION STRIP */}
-      <header className="main-header border-b border-slate-700/40 px-2 sm:px-3 py-1.5 flex flex-row justify-between items-center z-20 shrink-0 min-h-[44px]">
-        {/* Navigation Tabs on Line 2 */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0 mr-2">
-          <button
-            onClick={() => setCurrentView('calendar')}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-              currentView === 'calendar'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white/10 text-slate-200 hover:bg-white/20'
-            }`}
-          >
-            <Icons.Calendar size={13} />
-            <EditableText
-              id="menu_calendar"
-              defaultText="ตารางงาน"
-              customTexts={settings.customTexts}
-              isAdmin={isAdmin}
-              isLiveEdit={settings.isLiveEdit}
-              onSaveText={handleSaveCustomText}
-            />
-          </button>
-
-          <button
-            onClick={() => setCurrentView('search')}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-              currentView === 'search'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white/10 text-slate-200 hover:bg-white/20'
-            }`}
-          >
-            <Icons.Search size={13} />
-            <EditableText
-              id="menu_search"
-              defaultText="ค้นหางาน"
-              customTexts={settings.customTexts}
-              isAdmin={isAdmin}
-              isLiveEdit={settings.isLiveEdit}
-              onSaveText={handleSaveCustomText}
-            />
-          </button>
-
-          <button
-            onClick={() => {
-              if (!currentUser) return setAlertMsg('กรุณาเข้าสู่ระบบก่อนทำการจองคิวตรวจครับ');
-              if (currentUser.role === 'viewer') return setAlertMsg('บัญชีของคุณมีสิทธิ์เข้าชมเท่านั้น ไม่สามารถเพิ่มคิวงานได้');
-              setModal({ type: 'booking', data: { date: getLocalDateString(getThaiTime()) } });
-            }}
-            className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all flex items-center gap-1 whitespace-nowrap shrink-0 active:scale-95"
-          >
-            <Icons.Plus size={13} />
-            <EditableText
-              id="menu_new_job"
-              defaultText="จองคิวตรวจ"
-              customTexts={settings.customTexts}
-              isAdmin={isAdmin}
-              isLiveEdit={settings.isLiveEdit}
-              onSaveText={handleSaveCustomText}
-            />
-          </button>
-
-          <button
-            onClick={() => setCurrentView('sais_databases')}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-              currentView === 'sais_databases'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-white/10 text-slate-200 hover:bg-white/20'
-            }`}
-          >
-            <Icons.Database size={13} />
-            <EditableText
-              id="menu_databases"
-              defaultText="SAIS DATABASES"
-              customTexts={settings.customTexts}
-              isAdmin={isAdmin}
-              isLiveEdit={settings.isLiveEdit}
-              onSaveText={handleSaveCustomText}
-            />
-          </button>
-
-          {isAdmin && (
-            <button
-              onClick={() => setCurrentView('admin')}
-              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                currentView === 'admin'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white/10 text-amber-300 hover:bg-white/20'
+          {/* Realtime Firebase Badge on Top Bar */}
+          <div className="hidden md:flex items-center gap-1.5 text-[9px] sm:text-[10px] bg-slate-800/90 border border-slate-700/60 px-2 sm:px-2.5 py-0.5 rounded-full shrink-0 ml-1">
+            <span
+              className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                cloudStatus === 'connected'
+                  ? 'bg-emerald-400'
+                  : cloudStatus === 'syncing'
+                  ? 'bg-amber-400 animate-spin'
+                  : 'bg-slate-400'
               }`}
-            >
-              <Icons.Shield size={13} />
-              <EditableText
-                id="menu_admin_panel"
-                defaultText="แผงควบคุม Admin"
-                customTexts={settings.customTexts}
-                isAdmin={isAdmin}
-                isLiveEdit={settings.isLiveEdit}
-                onSaveText={handleSaveCustomText}
-              />
-            </button>
-          )}
+            />
+            <span className="text-slate-300 font-medium flex items-center gap-0.5">
+              <Icons.Flame size={10} className="text-amber-400 shrink-0" />
+              <span className="hidden lg:inline">Firebase 100%</span>
+              <span>
+                {cloudStatus === 'connected'
+                  ? 'Realtime'
+                  : cloudStatus === 'syncing'
+                  ? 'กำลังซิงค์...'
+                  : 'ออฟไลน์'}
+              </span>
+            </span>
+          </div>
         </div>
 
         {/* Right utility actions */}
@@ -960,132 +887,178 @@ export default function App() {
           {/* Settings Menu Button */}
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
+            className={`p-1.5 rounded-lg transition-colors shrink-0 ${
+              showSettings ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/10 hover:bg-white/20 text-white'
+            }`}
             title={t.systemSettings}
           >
             <Icons.Settings size={15} />
           </button>
 
           {showSettings && (
-            <div className="settings-menu animate-pop w-[270px] max-h-[80vh] overflow-y-auto custom-scrollbar">
-              <h4 className="text-xs font-bold border-b border-slate-200 pb-2 mb-3 text-slate-800 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Icons.Settings /> {t.systemSettings}
-                </span>
-                <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded">
-                  v2.0 Cloud
-                </span>
-              </h4>
-
-              {/* Cloud Sync Status in Menu */}
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 mb-3 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span className="text-slate-600 flex items-center gap-1">
-                    <Icons.Cloud size={13} className="text-blue-500" /> สถานะคลาวด์:
+            <>
+              {/* Backdrop to close when clicking outside */}
+              <div
+                className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[60] animate-fadeIn"
+                onClick={() => setShowSettings(false)}
+              />
+              <div className="settings-menu animate-pop w-[290px] max-h-[85vh] overflow-y-auto custom-scrollbar z-[70] shadow-2xl">
+                <div className="text-xs font-bold border-b border-slate-200 pb-2 mb-3 text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Icons.Settings size={15} className="text-slate-700" />
+                    <EditableText id="settings_title" defaultText={t.systemSettings} />
                   </span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] ${
-                      cloudStatus === 'connected'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : cloudStatus === 'syncing'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {cloudStatus === 'connected' ? '🟢 เชื่อมต่อแล้ว 100%' : '🟡 กำลังซิงค์'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded">
+                      v2.0 Cloud
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowSettings(false)}
+                      className="w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+                      title="ปิดหน้าต่าง"
+                    >
+                      <Icons.X size={14} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Cloud Sync Status in Menu */}
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 mb-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold">
+                    <span className="text-slate-600 flex items-center gap-1">
+                      <Icons.Cloud size={13} className="text-blue-500" />
+                      <EditableText id="settings_cloud_status_label" defaultText="สถานะคลาวด์:" />
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] ${
+                        cloudStatus === 'connected'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : cloudStatus === 'syncing'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {cloudStatus === 'connected' ? '🟢 เชื่อมต่อแล้ว 100%' : '🟡 กำลังซิงค์'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setLoadingMsg('กำลังซิงค์ข้อมูลกับ Firebase Firestore...');
+                      await seedInitialCloudData();
+                      setLoadingMsg(null);
+                      setSuccessModal('ซิงค์ข้อมูล Cloud Firestore 100% สำเร็จ');
+                    }}
+                    className="w-full py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors"
+                  >
+                    <Icons.RefreshCw size={11} />
+                    <EditableText id="settings_btn_force_sync" defaultText="บังคับซิงค์คลาวด์ทันที" />
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  onClick={async () => {
-                    setLoadingMsg('กำลังซิงค์ข้อมูลกับ Firebase Firestore...');
-                    await seedInitialCloudData();
-                    setLoadingMsg(null);
-                    setSuccessModal('ซิงค์ข้อมูล Cloud Firestore 100% สำเร็จ');
-                  }}
-                  className="w-full py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors"
+                  onClick={handleExportJPG}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl mb-3 shadow-sm flex items-center justify-center gap-1.5"
                 >
-                  <Icons.RefreshCw size={11} /> บังคับซิงค์คลาวด์ทันที
+                  <Icons.Download size={14} />
+                  <EditableText id="settings_btn_export_jpg" defaultText="บันทึกตารางหน้านี้ (JPG)" />
                 </button>
+
+                <div className="space-y-3 text-xs border-t border-slate-100 pt-2">
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-500 mb-1">
+                      <EditableText id="settings_label_col_zoom" defaultText="ความกว้างตาราง (คอลัมน์)" />
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setColumnZoom((prev) => Math.max(0.5, Math.round((prev - 0.1) * 10) / 10))}
+                        className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
+                      >
+                        -
+                      </button>
+                      <span className="font-bold text-blue-600">{(columnZoom * 100).toFixed(0)}%</span>
+                      <button
+                        type="button"
+                        onClick={() => setColumnZoom((prev) => Math.min(2.5, Math.round((prev + 0.1) * 10) / 10))}
+                        className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-500 mb-1">
+                      <EditableText id="settings_label_table_font" defaultText="ขนาดฟอนต์ปกติ" />
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setTableFontScale((prev) => Math.max(0.5, Math.round((prev - 0.1) * 10) / 10))}
+                        className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
+                      >
+                        -
+                      </button>
+                      <span className="font-bold text-blue-600">{(tableFontScale * 100).toFixed(0)}%</span>
+                      <button
+                        type="button"
+                        onClick={() => setTableFontScale((prev) => Math.min(2.5, Math.round((prev + 0.1) * 10) / 10))}
+                        className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-500 mb-1">
+                      <EditableText id="settings_label_special_font" defaultText="ขนาดฟอนต์ ลา/หยุด/กิจกรรม" />
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setSpecialFontScale((prev) => Math.max(0.5, Math.round((prev - 0.1) * 10) / 10))}
+                        className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
+                      >
+                        -
+                      </button>
+                      <span className="font-bold text-blue-600">{(specialFontScale * 100).toFixed(0)}%</span>
+                      <button
+                        type="button"
+                        onClick={() => setSpecialFontScale((prev) => Math.min(2.5, Math.round((prev + 0.1) * 10) / 10))}
+                        className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setColumnZoom(1.0);
+                      setTableFontScale(1.0);
+                      setSpecialFontScale(1.0);
+                    }}
+                    className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-[11px] transition-colors"
+                  >
+                    <EditableText id="settings_btn_reset_zoom" defaultText="↺ คืนค่าขนาดเริ่มต้น" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSettings(false)}
+                    className="w-full mt-2 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    <Icons.Check size={14} />
+                    <EditableText id="settings_btn_close" defaultText="ปิดหน้าต่างการตั้งค่า" />
+                  </button>
+                </div>
               </div>
-
-              <button
-                onClick={handleExportJPG}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl mb-3 shadow-sm flex items-center justify-center gap-1.5"
-              >
-                <Icons.Download /> บันทึกตารางหน้านี้ (JPG)
-              </button>
-
-              <div className="space-y-3 text-xs border-t border-slate-100 pt-2">
-                <div>
-                  <div className="text-[10px] font-bold text-slate-500 mb-1">ความกว้างตาราง (คอลัมน์)</div>
-                  <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                    <button
-                      onClick={() => setColumnZoom((prev) => Math.max(0.5, Math.round((prev - 0.1) * 10) / 10))}
-                      className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
-                    >
-                      -
-                    </button>
-                    <span className="font-bold text-blue-600">{(columnZoom * 100).toFixed(0)}%</span>
-                    <button
-                      onClick={() => setColumnZoom((prev) => Math.min(2.5, Math.round((prev + 0.1) * 10) / 10))}
-                      className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[10px] font-bold text-slate-500 mb-1">ขนาดฟอนต์ปกติ</div>
-                  <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                    <button
-                      onClick={() => setTableFontScale((prev) => Math.max(0.5, Math.round((prev - 0.1) * 10) / 10))}
-                      className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
-                    >
-                      -
-                    </button>
-                    <span className="font-bold text-blue-600">{(tableFontScale * 100).toFixed(0)}%</span>
-                    <button
-                      onClick={() => setTableFontScale((prev) => Math.min(2.5, Math.round((prev + 0.1) * 10) / 10))}
-                      className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[10px] font-bold text-slate-500 mb-1">ขนาดฟอนต์ ลา/หยุด/กิจกรรม</div>
-                  <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                    <button
-                      onClick={() => setSpecialFontScale((prev) => Math.max(0.5, Math.round((prev - 0.1) * 10) / 10))}
-                      className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
-                    >
-                      -
-                    </button>
-                    <span className="font-bold text-blue-600">{(specialFontScale * 100).toFixed(0)}%</span>
-                    <button
-                      onClick={() => setSpecialFontScale((prev) => Math.min(2.5, Math.round((prev + 0.1) * 10) / 10))}
-                      className="w-8 h-8 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 shadow-sm"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setColumnZoom(1.0);
-                    setTableFontScale(1.0);
-                    setSpecialFontScale(1.0);
-                  }}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-[11px] transition-colors"
-                >
-                  ↺ คืนค่าขนาดเริ่มต้น
-                </button>
-              </div>
-            </div>
+            </>
           )}
 
           {/* Notifications Button */}
@@ -2029,146 +2002,349 @@ export default function App() {
               </div>
             )}
 
-            {/* Admin Inspectors Tab */}
+            {/* Admin Inspectors Tab: Unified Inspector, Certificate & Order Management */}
             {adminTab === 'inspectors' && (
-              <div className="space-y-3 animate-pop">
-                <div className="flex justify-between items-center">
+              <div className="space-y-4 animate-pop pb-36">
+                {/* Header & Main Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
                   <div>
-                    <h3 className="text-xs font-bold text-slate-800">รายชื่อผู้ตรวจ ({inspectors.length})</h3>
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <Icons.FileCheck className="text-indigo-600" size={18} />
+                      รายชื่อผู้ตรวจและ Certificate ({inspectors.length} ท่าน)
+                    </h3>
                     <p className="text-[11px] text-slate-500">
-                      ปรับลำดับการแสดงผลผู้ตรวจบนตารางได้ทันที (ซ้ายไปขวา)
+                      เพิ่ม / แก้ไข / ลบ ผู้ตรวจ, ตั้งค่า Certificate สิทธิ์รับงาน, และจัดลำดับคอลัมน์บนตารางปฏิทิน
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setShowAdminSettingsModal(true)}
-                      className="text-xs bg-slate-800 hover:bg-slate-900 text-white font-bold px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
-                    >
-                      <Icons.Settings size={13} /> ตั้งค่าขั้นสูง
-                    </button>
-                    <button
+                      type="button"
                       onClick={() => setModal({ type: 'inspector_modal' })}
-                      className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1"
+                      className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors shrink-0"
                     >
-                      <Icons.Plus /> เพิ่มผู้ตรวจ
+                      <Icons.Plus size={14} /> เพิ่มผู้ตรวจ (แบบฟอร์มละเอียด)
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-blue-50/70 p-2.5 rounded-xl border border-blue-200 text-xs text-blue-900 font-bold flex items-center gap-2">
-                  <span>💡 ลำดับที่ 1 จะแสดงเป็นคอลัมน์แรกถัดจากวันที่บนตารางปฏิทิน คลิก ▲ หรือ ▼ เพื่อจัดตำแหน่ง</span>
+                {/* Info & Rules Banner */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-2xl border border-blue-200/80 text-xs text-blue-900 space-y-1 shadow-2xs">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span>💡 การเชื่อมโยงข้อมูลและสิทธิ์:</span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 space-y-0.5 pl-2">
+                    <div>• <b>ลำดับคอลัมน์บนตาราง:</b> ผู้ตรวจลำดับที่ 1 จะแสดงเป็นคอลัมน์แรกถัดจากวันที่บนตารางปฏิทิน (เรียง 1 → {inspectors.length} จากซ้ายไปขวา)</div>
+                    <div>• <b>Certificate:</b> เมื่อผู้ใช้เลือกผู้ตรวจในหน้าจองคิว ระบบจะกรอง Product Line ตาม Certificate ของผู้ตรวจท่านนั้นๆ ให้ทันที</div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  {inspectors.map((ins, idx) => (
-                    <div
-                      key={ins.name}
-                      className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2 hover:border-blue-300 transition-colors"
-                    >
-                      <div className="flex justify-between items-center gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {/* Order Selector & Up / Down Reordering */}
-                          <div className="flex items-center gap-1 shrink-0">
-                            <label className="text-[10px] text-slate-500 font-bold">ลำดับ:</label>
-                            <select
-                              value={idx + 1}
-                              onChange={(e) => {
-                                const toOrder = parseInt(e.target.value);
-                                const targetIdx = toOrder - 1;
-                                if (targetIdx < 0 || targetIdx >= inspectors.length || targetIdx === idx) return;
-                                const newInspectors = [...inspectors];
-                                const [moved] = newInspectors.splice(idx, 1);
-                                newInspectors.splice(targetIdx, 0, moved);
-                                setInspectors(newInspectors);
-                                saveInspectorsToStorage(newInspectors);
-                                firestoreSaveInspectors(newInspectors);
-                              }}
-                              className="text-xs font-black bg-white border border-blue-300 text-blue-700 rounded-lg px-2 py-1 shadow-2xs outline-none cursor-pointer hover:border-blue-500"
-                              title="เลือกลำดับแสดงผลบนตาราง"
-                            >
-                              {inspectors.map((_, orderIdx) => (
-                                <option key={orderIdx + 1} value={orderIdx + 1}>
-                                  {orderIdx + 1}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="flex items-center gap-0.5">
+                {/* Quick Inline Add Form */}
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Icons.Plus className="text-emerald-600" size={14} />
+                      เพิ่มผู้ตรวจใหม่อย่างรวดเร็ว (Quick Add)
+                    </h4>
+                    <span className="text-[10px] text-slate-400">ระบุชื่อและบันทึกได้ทันที</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                    <div className="sm:col-span-4">
+                      <input
+                        type="text"
+                        value={newInsInlineName}
+                        onChange={(e) => setNewInsInlineName(e.target.value)}
+                        placeholder="ชื่อผู้ตรวจ เช่น ณัฐพงศ์..."
+                        className="w-full text-xs p-2 rounded-xl border border-slate-300 font-bold text-slate-800 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (!newInsInlineName.trim()) {
+                              setAlertMsg('กรุณากรอกชื่อผู้ตรวจ');
+                              return;
+                            }
+                            const trimmed = newInsInlineName.trim();
+                            if (inspectors.some((ins) => ins.name.toLowerCase() === trimmed.toLowerCase())) {
+                              setAlertMsg(`มีผู้ตรวจชื่อ "${trimmed}" อยู่แล้ว`);
+                              return;
+                            }
+                            const newIns: Inspector = {
+                              name: trimmed,
+                              product_lines: newInsInlineLines.trim() || 'ES1, 3300, 5500, S-villas',
+                              order: inspectors.length + 1,
+                            };
+                            const updated = [...inspectors, newIns].map((item, idx) => ({ ...item, order: idx + 1 }));
+                            setInspectors(updated);
+                            saveInspectorsToStorage(updated);
+                            firestoreSaveInspectors(updated);
+                            logSystem('ADD INSPECTOR', `เพิ่มผู้ตรวจ ${trimmed}`);
+                            setSuccessModal(`เพิ่มผู้ตรวจ "${trimmed}" สำเร็จ`);
+                            setNewInsInlineName('');
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="sm:col-span-6">
+                      <input
+                        type="text"
+                        value={newInsInlineLines}
+                        onChange={(e) => setNewInsInlineLines(e.target.value)}
+                        placeholder="Product Lines เช่น ES1, 3300, 5500, S-villas"
+                        className="w-full text-xs p-2 rounded-xl border border-slate-300 font-medium text-slate-800 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!newInsInlineName.trim()) {
+                            setAlertMsg('กรุณากรอกชื่อผู้ตรวจ');
+                            return;
+                          }
+                          const trimmed = newInsInlineName.trim();
+                          if (inspectors.some((ins) => ins.name.toLowerCase() === trimmed.toLowerCase())) {
+                            setAlertMsg(`มีผู้ตรวจชื่อ "${trimmed}" อยู่ในระบบแล้ว`);
+                            return;
+                          }
+                          const newIns: Inspector = {
+                            name: trimmed,
+                            product_lines: newInsInlineLines.trim() || 'ES1, 3300, 5500, S-villas',
+                            order: inspectors.length + 1,
+                          };
+                          const updated = [...inspectors, newIns].map((item, idx) => ({ ...item, order: idx + 1 }));
+                          setInspectors(updated);
+                          saveInspectorsToStorage(updated);
+                          firestoreSaveInspectors(updated);
+                          logSystem('ADD INSPECTOR', `เพิ่มผู้ตรวจ ${trimmed}`);
+                          setSuccessModal(`เพิ่มผู้ตรวจ "${trimmed}" สำเร็จ พร้อมกำหนด Certificate เรียบร้อย`);
+                          setNewInsInlineName('');
+                        }}
+                        className="w-full h-full min-h-[34px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1 transition-colors"
+                      >
+                        <Icons.Plus size={13} /> เพิ่มทันที
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search & Filter Bar */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={inspectorSearchQuery}
+                      onChange={(e) => setInspectorSearchQuery(e.target.value)}
+                      placeholder="ค้นหาชื่อผู้ตรวจ หรือรุ่น Certificate..."
+                      className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:border-blue-400 outline-none shadow-2xs"
+                    />
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                      <Icons.Search size={14} />
+                    </span>
+                    {inspectorSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setInspectorSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Inspectors List (Fully Scrollable Cards) */}
+                <div className="space-y-2.5">
+                  {inspectors
+                    .filter(
+                      (ins) =>
+                        !inspectorSearchQuery.trim() ||
+                        ins.name.toLowerCase().includes(inspectorSearchQuery.toLowerCase()) ||
+                        (ins.product_lines &&
+                          ins.product_lines.toLowerCase().includes(inspectorSearchQuery.toLowerCase()))
+                    )
+                    .map((ins) => {
+                      const realIndex = inspectors.findIndex((x) => x.name === ins.name);
+                      const currentOrder = realIndex + 1;
+                      const parsedLines = ins.product_lines
+                        ? ins.product_lines.split(',').map((s) => s.trim()).filter(Boolean)
+                        : [];
+
+                      return (
+                        <div
+                          key={ins.name}
+                          className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-sm space-y-3 hover:border-indigo-300 transition-all"
+                        >
+                          {/* Top row: Order control, Name, and Actions */}
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {/* Order selector & ▲/▼ buttons */}
+                              <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 shrink-0">
+                                <span className="text-[10px] font-black text-slate-400 px-1">
+                                  #{currentOrder}
+                                </span>
+                                <select
+                                  value={currentOrder}
+                                  onChange={(e) => {
+                                    const toOrder = parseInt(e.target.value);
+                                    const targetIdx = Math.max(0, Math.min(inspectors.length - 1, toOrder - 1));
+                                    if (targetIdx === realIndex) return;
+                                    const updated = [...inspectors];
+                                    const [moved] = updated.splice(realIndex, 1);
+                                    updated.splice(targetIdx, 0, moved);
+                                    const reordered = updated.map((item, idx) => ({ ...item, order: idx + 1 }));
+                                    setInspectors(reordered);
+                                    saveInspectorsToStorage(reordered);
+                                    firestoreSaveInspectors(reordered);
+                                    logSystem('REORDER INSPECTOR', `เปลี่ยนลำดับ ${moved.name} เป็นลำดับที่ ${toOrder}`);
+                                  }}
+                                  className="text-xs font-black bg-white border border-indigo-200 text-indigo-700 rounded-lg px-2 py-0.5 shadow-2xs outline-none cursor-pointer hover:border-indigo-400"
+                                  title="เปลี่ยนตำแหน่งคอลัมน์บนตาราง"
+                                >
+                                  {inspectors.map((_, orderIdx) => (
+                                    <option key={orderIdx + 1} value={orderIdx + 1}>
+                                      อันดับ {orderIdx + 1}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    type="button"
+                                    disabled={realIndex === 0}
+                                    onClick={() => {
+                                      if (realIndex === 0) return;
+                                      const updated = [...inspectors];
+                                      const [moved] = updated.splice(realIndex, 1);
+                                      updated.splice(realIndex - 1, 0, moved);
+                                      const reordered = updated.map((item, idx) => ({ ...item, order: idx + 1 }));
+                                      setInspectors(reordered);
+                                      saveInspectorsToStorage(reordered);
+                                      firestoreSaveInspectors(reordered);
+                                      logSystem('REORDER INSPECTOR', `เลื่อน ${moved.name} ขึ้นเป็นลำดับที่ ${realIndex}`);
+                                    }}
+                                    title="เลื่อนขึ้น / คอลัมน์ไปทางซ้าย"
+                                    className="w-6 h-6 rounded-md bg-white hover:bg-indigo-50 disabled:opacity-20 border border-slate-200 text-slate-700 font-black text-xs flex items-center justify-center transition-colors shadow-2xs"
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={realIndex === inspectors.length - 1}
+                                    onClick={() => {
+                                      if (realIndex === inspectors.length - 1) return;
+                                      const updated = [...inspectors];
+                                      const [moved] = updated.splice(realIndex, 1);
+                                      updated.splice(realIndex + 1, 0, moved);
+                                      const reordered = updated.map((item, idx) => ({ ...item, order: idx + 1 }));
+                                      setInspectors(reordered);
+                                      saveInspectorsToStorage(reordered);
+                                      firestoreSaveInspectors(reordered);
+                                      logSystem('REORDER INSPECTOR', `เลื่อน ${moved.name} ลงเป็นลำดับที่ ${realIndex + 2}`);
+                                    }}
+                                    title="เลื่อนลง / คอลัมน์ไปทางขวา"
+                                    className="w-6 h-6 rounded-md bg-white hover:bg-indigo-50 disabled:opacity-20 border border-slate-200 text-slate-700 font-black text-xs flex items-center justify-center transition-colors shadow-2xs"
+                                  >
+                                    ▼
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Inspector Name */}
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
+                                  <Icons.User size={14} />
+                                </div>
+                                <span className="font-bold text-xs sm:text-sm text-slate-800 truncate">
+                                  {ins.name}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                disabled={idx === 0}
-                                onClick={() => {
-                                  if (idx === 0) return;
-                                  const newInspectors = [...inspectors];
-                                  const [moved] = newInspectors.splice(idx, 1);
-                                  newInspectors.splice(idx - 1, 0, moved);
-                                  setInspectors(newInspectors);
-                                  saveInspectorsToStorage(newInspectors);
-                                  firestoreSaveInspectors(newInspectors);
-                                }}
-                                title="เลื่อนขึ้น / ซ้าย"
-                                className="w-6 h-6 rounded-md bg-white hover:bg-blue-100 disabled:opacity-25 border border-slate-300 text-slate-700 font-black text-xs flex items-center justify-center transition-colors"
+                                onClick={() => setModal({ type: 'inspector_modal', data: ins })}
+                                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors"
+                                title="แก้ไข Certificate & ข้อมูลผู้ตรวจ"
                               >
-                                ▲
+                                <Icons.Settings size={13} />
+                                <span className="hidden sm:inline">ตั้งค่า</span>
                               </button>
                               <button
                                 type="button"
-                                disabled={idx === inspectors.length - 1}
-                                onClick={() => {
-                                  if (idx === inspectors.length - 1) return;
-                                  const newInspectors = [...inspectors];
-                                  const [moved] = newInspectors.splice(idx, 1);
-                                  newInspectors.splice(idx + 1, 0, moved);
-                                  setInspectors(newInspectors);
-                                  saveInspectorsToStorage(newInspectors);
-                                  firestoreSaveInspectors(newInspectors);
-                                }}
-                                title="เลื่อนลง / ขวา"
-                                className="w-6 h-6 rounded-md bg-white hover:bg-blue-100 disabled:opacity-25 border border-slate-300 text-slate-700 font-black text-xs flex items-center justify-center transition-colors"
+                                onClick={() => setModal({ type: 'inspector_modal', data: ins })}
+                                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors"
+                                title="แก้ไขชื่อ"
                               >
-                                ▼
+                                <Icons.Edit size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setConfirmDialog({
+                                    msg: `ยืนยันการลบผู้ตรวจ "${ins.name}" ออกจากระบบ? (ลำดับแสดงผลบนตารางจะถูกปรับให้อัตโนมัติ)`,
+                                    onConfirm: () => {
+                                      setConfirmDialog(null);
+                                      const updated = inspectors
+                                        .filter((x) => x.name !== ins.name)
+                                        .map((item, idx) => ({ ...item, order: idx + 1 }));
+                                      setInspectors(updated);
+                                      saveInspectorsToStorage(updated);
+                                      firestoreSaveInspectors(updated);
+                                      logSystem('DELETE INSPECTOR', `ลบผู้ตรวจ ${ins.name}`);
+                                      setSuccessModal(`ลบผู้ตรวจ "${ins.name}" สำเร็จ`);
+                                    },
+                                  });
+                                }}
+                                className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
+                                title="ลบผู้ตรวจ"
+                              >
+                                <Icons.Trash size={14} />
                               </button>
                             </div>
                           </div>
 
-                          <span className="font-bold text-xs text-slate-800 truncate">{ins.name}</span>
-                        </div>
+                          {/* Certificate Badges display */}
+                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-bold text-slate-600 flex items-center gap-1">
+                                <Icons.Check size={12} className="text-emerald-600" />
+                                Certificate สิทธิ์รับงาน ({parsedLines.length} รุ่น):
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setModal({ type: 'inspector_modal', data: ins })}
+                                className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
+                              >
+                                + / - แก้ไข Certificate
+                              </button>
+                            </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={() => setModal({ type: 'inspector_modal', data: ins })}
-                            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors"
-                            title="แก้ไข"
-                          >
-                            <Icons.Edit />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setConfirmDialog({
-                                msg: `ยืนยันการลบผู้ตรวจ "${ins.name}"?`,
-                                onConfirm: () => {
-                                  setConfirmDialog(null);
-                                  const updated = inspectors.filter((x) => x.name !== ins.name);
-                                  setInspectors(updated);
-                                  saveInspectorsToStorage(updated);
-                                  firestoreSaveInspectors(updated);
-                                  logSystem('DELETE INSPECTOR', `ลบผู้ตรวจ ${ins.name}`);
-                                  setSuccessModal('ลบผู้ตรวจสำเร็จ');
-                                },
-                              });
-                            }}
-                            className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
-                            title="ลบ"
-                          >
-                            <Icons.Trash />
-                          </button>
+                            <div className="flex flex-wrap gap-1.5">
+                              {parsedLines.length > 0 ? (
+                                parsedLines.map((model) => {
+                                  const color = PRODUCT_BADGE_COLORS[model] || {
+                                    bg: 'bg-slate-100',
+                                    text: 'text-slate-700',
+                                    border: 'border-slate-300',
+                                  };
+                                  return (
+                                    <span
+                                      key={model}
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${color.bg} ${color.text} ${color.border} shadow-2xs`}
+                                    >
+                                      {model}
+                                    </span>
+                                  );
+                                })
+                              ) : (
+                                <span className="text-[10px] text-slate-400 italic">
+                                  ยังไม่มี Certificate ที่กำหนด (จะไม่สามารถรับงานเฉพาะรุ่นได้)
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        <span className="font-bold">Product Lines: </span>
-                        {ins.product_lines || 'ES1, 3300, S-villas'}
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               </div>
             )}
@@ -2545,17 +2721,43 @@ export default function App() {
             inspector={modal.data}
             onClose={() => setModal(null)}
             onSave={(name, productLines, oldName) => {
+              const trimmedName = name.trim();
+              const trimmedLines = productLines.trim();
               let nextInspectors: Inspector[];
               if (oldName) {
-                nextInspectors = inspectors.map((i) => (i.name === oldName ? { name, product_lines: productLines } : i));
-                logSystem('UPDATE INSPECTOR', `แก้ไขผู้ตรวจ ${name}`);
+                nextInspectors = inspectors.map((i) =>
+                  i.name === oldName
+                    ? { ...i, name: trimmedName, product_lines: trimmedLines }
+                    : i
+                );
+                logSystem('UPDATE INSPECTOR', `แก้ไขผู้ตรวจ ${trimmedName}`);
               } else {
-                nextInspectors = [...inspectors, { name, product_lines: productLines }];
-                logSystem('ADD INSPECTOR', `เพิ่มผู้ตรวจใหม่ ${name}`);
+                nextInspectors = [
+                  ...inspectors,
+                  { name: trimmedName, product_lines: trimmedLines, order: inspectors.length + 1 },
+                ];
+                logSystem('ADD INSPECTOR', `เพิ่มผู้ตรวจใหม่ ${trimmedName}`);
               }
-              setInspectors(nextInspectors);
-              saveInspectorsToStorage(nextInspectors);
-              firestoreSaveInspectors(nextInspectors);
+
+              const reordered = nextInspectors.map((ins, idx) => ({
+                ...ins,
+                order: ins.order ?? idx + 1,
+              }));
+
+              setInspectors(reordered);
+              saveInspectorsToStorage(reordered);
+              firestoreSaveInspectors(reordered);
+
+              // Synchronize bookings if inspector was renamed
+              if (oldName && oldName !== trimmedName) {
+                const updatedBookings = bookings.map((b) =>
+                  b.inspector_name === oldName ? { ...b, inspector_name: trimmedName } : b
+                );
+                setBookings(updatedBookings);
+                saveBookingsToStorage(updatedBookings);
+                firestoreSaveBookings(updatedBookings);
+              }
+
               setSuccessModal('บันทึกข้อมูลผู้ตรวจเรียบร้อย');
               setModal(null);
             }}
@@ -2734,6 +2936,7 @@ export default function App() {
           onExportJPG={handleExportJPG}
         />
       )}
-    </div>
+      </div>
+    </LiveEditProvider>
   );
 }

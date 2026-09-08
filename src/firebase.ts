@@ -176,6 +176,22 @@ export const firestoreDeleteBooking = async (bookingId: string): Promise<void> =
   }
 };
 
+export const firestoreSaveBookings = async (bookings: Booking[]): Promise<void> => {
+  try {
+    updateStatus('syncing');
+    const batch = writeBatch(firestoreDb);
+    bookings.forEach((b) => {
+      const docRef = doc(firestoreDb, COLLECTIONS.BOOKINGS, b.id);
+      batch.set(docRef, b, { merge: true });
+    });
+    await batch.commit();
+    updateStatus('connected');
+  } catch (err) {
+    console.warn('Failed to batch save bookings to Firestore:', err);
+    updateStatus('offline');
+  }
+};
+
 export const firestoreSaveInspectors = async (inspectors: Inspector[]): Promise<void> => {
   try {
     updateStatus('syncing');

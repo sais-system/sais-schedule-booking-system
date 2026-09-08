@@ -95,7 +95,10 @@ export const loadInitialData = () => {
 
     const savedInspectors = localStorage.getItem(STORAGE_KEYS.INSPECTORS);
     if (savedInspectors) {
-      inspectors = JSON.parse(savedInspectors);
+      const parsed: Inspector[] = JSON.parse(savedInspectors);
+      inspectors = [...parsed]
+        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+        .map((item, idx) => ({ ...item, order: item.order ?? idx + 1 }));
     } else {
       localStorage.setItem(STORAGE_KEYS.INSPECTORS, JSON.stringify(inspectors));
     }
@@ -143,7 +146,11 @@ export const saveBookingsToStorage = (bookings: Booking[]) => {
 
 export const saveInspectorsToStorage = (inspectors: Inspector[]) => {
   try {
-    localStorage.setItem(STORAGE_KEYS.INSPECTORS, JSON.stringify(inspectors));
+    const normalized = inspectors.map((item, idx) => ({
+      ...item,
+      order: item.order ?? idx + 1,
+    }));
+    localStorage.setItem(STORAGE_KEYS.INSPECTORS, JSON.stringify(normalized));
   } catch (e) {}
 };
 
