@@ -1,4 +1,4 @@
-import { Booking, Inspector, User, WebSettings, SystemNotification, SystemLog } from './types';
+import { Booking, Inspector, User, WebSettings, SystemNotification, SystemLog, OilTrackingRecord } from './types';
 import { DEFAULT_INSPECTORS, DEFAULT_USERS, DEFAULT_SETTINGS, generateDefaultBookings, DEFAULT_NOTIFICATIONS, DEFAULT_LOGS, getThaiTime } from './mockData';
 
 const STORAGE_KEYS = {
@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   REMEMBER_USER: 'sais_remember_user',
   REMEMBER_TIME: 'sais_remember_time',
   SESSION_USER: 'sais_session_user',
+  OIL_TRACKING: 'sais_oil_tracking_v1',
 };
 
 // 24 hours in milliseconds
@@ -195,3 +196,24 @@ export const logActivityAction = (
   saveLogsToStorage(updated);
   return updated;
 };
+
+export const loadOilRecordsFromStorage = (): OilTrackingRecord[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.OIL_TRACKING);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn('Failed to load oil records from localStorage:', e);
+    return [];
+  }
+};
+
+export const saveOilRecordsToStorage = (records: OilTrackingRecord[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.OIL_TRACKING, JSON.stringify(records));
+  } catch (e) {
+    console.warn('Failed to save oil records to localStorage:', e);
+  }
+};
+

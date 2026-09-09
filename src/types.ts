@@ -40,6 +40,7 @@ export interface Booking {
   created_by?: string;
   status?: 'active' | 'cancelled' | string;
   sais_status?: string;
+  inspection_result?: string; // e.g. "pass with OIL", "pass", "fail"
   condition?: string;
   pre_check?: string;
   buzzer?: string;
@@ -74,6 +75,8 @@ export interface SystemNotification {
   target?: string;
   timestamp: string;
   isRead?: string;
+  type?: 'add' | 'edit' | 'move' | 'delete' | 'cancel' | string;
+  bookingId?: string;
 }
 
 export interface SystemLog {
@@ -130,6 +133,8 @@ export interface WebSettings {
   // Google Drive Cloud Storage (15GB free tier integration)
   gdriveRootFolderId?: string;
   gdriveRootFolderUrl?: string;
+  gdriveOilFolderId?: string;
+  gdriveOilFolderUrl?: string;
   gdriveAutoOrganizeByProject?: boolean;
   gdriveApiKey?: string;
   gdriveClientId?: string;
@@ -165,4 +170,46 @@ export interface DayInfo {
   globalEvents: Booking[];
   isToday: boolean;
   isEmpty: boolean;
+}
+
+// ----------------------------------------------------
+// Tracking OIL (Open Item List) System Types
+// ----------------------------------------------------
+export type OilSource = 'Installer' | 'Customer' | 'Manual';
+export type OilItemStatus = 'Open' | 'In Progress' | 'Fixed' | 'Verified';
+export type OilTrackingStatus = 'Waiting for PDF' | 'OIL Recorded' | 'In Progress' | 'Completed' | 'Cancelled';
+
+export interface OilItem {
+  id: string;
+  uid: string; // e.g. '2.14.1.b', '3.4.19', '11.13.2.a'
+  item_type?: 'triangle' | 'square'; // Triangle (△) vs Square (□) defect mark
+  source: OilSource;
+  title?: string; // Item question or section heading
+  description: string; // Annotations Comment details
+  status: OilItemStatus;
+  responsible?: string; // Fitter / Installer / Customer / Schindler
+  created_at?: string;
+  notes?: string;
+}
+
+export interface OilTrackingRecord {
+  id: string;
+  equipment_no: string;
+  site_name: string;
+  inspection_date: string; // DD/MM/YYYY or YYYY-MM-DD
+  inspector_name?: string;
+  supervisor?: string;
+  status: OilTrackingStatus;
+  items: OilItem[];
+  booking_id?: string;
+  installer_filename?: string;
+  customer_filename?: string;
+  installer_pdf_url?: string;
+  customer_pdf_url?: string;
+  pdf_url?: string;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  source?: 'auto' | 'manual';
+  notes?: string;
 }

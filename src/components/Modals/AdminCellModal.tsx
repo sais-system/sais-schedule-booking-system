@@ -42,7 +42,7 @@ export const AdminCellModal: React.FC<AdminCellModalProps> = ({
           onClick={onBook}
           className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 text-xs transition-all active:scale-98"
         >
-          <Icons.Plus /> จองคิวตรวจ SAIS ปกติ
+          <Icons.Plus /> จองคิวตรวจ SAIS
         </button>
         <button
           onClick={onAddEvent}

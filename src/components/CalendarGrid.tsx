@@ -42,6 +42,11 @@ const formatSafeDate = (val?: string) => {
 };
 
 const getCardStyle = (task: Booking, settings: WebSettings = {}) => {
+  const isCancelled = String(task.status) === 'cancelled';
+  if (isCancelled) {
+    return { bg: '#f8fafc', text: '#64748b', isSpecial: false, isLeave: false, isCancelled: true };
+  }
+
   const jobType = String(task.job_type || '').toLowerCase();
   const area = String(task.area || '').trim();
   const siteStr = String(task.site_name || '').toLowerCase();
@@ -51,27 +56,27 @@ const getCardStyle = (task: Booking, settings: WebSettings = {}) => {
   const isLeave = jobType === 'leave' || combinedStr.includes('leave_') || combinedStr.includes('ลา') || combinedStr === 'ลา';
 
   if (jobType === 'public_holiday' || combinedStr.includes('hld_')) {
-    return { bg: settings.holidayBg || '#D0021B', text: settings.holidayText || '#ffffff', isSpecial: true, isLeave: false };
+    return { bg: settings.holidayBg || '#D0021B', text: settings.holidayText || '#ffffff', isSpecial: true, isLeave: false, isCancelled: false };
   }
   if (jobType === 'company_event' || combinedStr.includes('event_') || combinedStr.includes('meeting')) {
     let eventBg = settings.eventBg || '#22c55e';
     const match = String(task.equipment_no).match(/_(#[0-9a-fA-F]{6})/);
     if (match) eventBg = match[1];
-    return { bg: eventBg, text: settings.eventText || '#ffffff', isSpecial: true, isLeave: false };
+    return { bg: eventBg, text: settings.eventText || '#ffffff', isSpecial: true, isLeave: false, isCancelled: false };
   }
   if (isLeave) {
-    return { bg: settings.leaveBg || '#eab308', text: settings.leaveText || '#ffffff', isSpecial: true, isLeave: true };
+    return { bg: settings.leaveBg || '#eab308', text: settings.leaveText || '#ffffff', isSpecial: true, isLeave: true, isCancelled: false };
   }
   if (area !== '' && area !== 'กรุงเทพและปริมณฑล' && area !== 'ไม่ระบุ') {
-    return { bg: settings.upcBg || '#f472b6', text: settings.upcText || '#ffffff', isSpecial: false, isLeave: false };
+    return { bg: settings.upcBg || '#f472b6', text: settings.upcText || '#ffffff', isSpecial: false, isLeave: false, isCancelled: false };
   }
   if (jobType === 'mod') {
-    return { bg: settings.modBg || '#64748b', text: settings.modText || '#ffffff', isSpecial: false, isLeave: false };
+    return { bg: settings.modBg || '#64748b', text: settings.modText || '#ffffff', isSpecial: false, isLeave: false, isCancelled: false };
   }
   if (jobType.includes('re-ins') || jobType.includes('temporary') || jobType.includes('builder lift')) {
-    return { bg: settings.reinsBg || '#fef08a', text: settings.reinsText || '#854d0e', isSpecial: false, isLeave: false };
+    return { bg: settings.reinsBg || '#fef08a', text: settings.reinsText || '#854d0e', isSpecial: false, isLeave: false, isCancelled: false };
   }
-  return { bg: settings.normalBg || '#e2e8f0', text: settings.normalText || '#1e293b', isSpecial: false, isLeave: false };
+  return { bg: settings.normalBg || '#e2e8f0', text: settings.normalText || '#1e293b', isSpecial: false, isLeave: false, isCancelled: false };
 };
 
 export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
@@ -99,7 +104,6 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
   const taskMap = useMemo(() => {
     const map: Record<string, Booking[]> = {};
     filteredBookings.forEach((task) => {
-      if (String(task.status) === 'cancelled') return;
       const dateStr = formatSafeDate(task.date);
       if (!dateStr) return;
       const key = `${dateStr}_${task.inspector_name}`;
@@ -390,10 +394,15 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                               </div>
                             ) : isSingleCard ? (
                               <div className="format-multi-line flex flex-col justify-center items-center w-full !text-center">
+                                {styleObj.isCancelled && (
+                                  <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-700 border border-rose-300 mb-1 leading-none shadow-2xs">
+                                    [ยกเลิกคิว]
+                                  </span>
+                                )}
                                 {!styleObj.isSpecial ? (
                                   <>
                                     <div
-                                      className="leading-tight opacity-90 font-bold"
+                                      className={`leading-tight opacity-90 font-bold ${styleObj.isCancelled ? 'line-through opacity-60' : ''}`}
                                       style={{
                                         fontSize: `${(settings.fontCardSub || (isExporting ? 12 : 10)) * dynamicScale * tableFontScale}px`,
                                       }}
@@ -401,7 +410,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                                       {task.equipment_no} <span className="opacity-60">/</span> {task.product_line || '-'} <span className="opacity-60">/</span> {task.unit_no}
                                     </div>
                                     <div
-                                      className="leading-tight font-black mt-[2px] w-full break-words"
+                                      className={`leading-tight font-black mt-[2px] w-full break-words ${styleObj.isCancelled ? 'line-through text-slate-500' : ''}`}
                                       style={{
                                         fontSize: `${(settings.fontCardTitle || (isExporting ? 14 : 11)) * dynamicScale * tableFontScale}px`,
                                         whiteSpace: isExporting ? 'normal' : 'inherit',
@@ -412,7 +421,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                                   </>
                                 ) : (
                                   <div
-                                    className="whitespace-pre-wrap leading-tight font-black w-full break-words"
+                                    className={`whitespace-pre-wrap leading-tight font-black w-full break-words ${styleObj.isCancelled ? 'line-through text-slate-500' : ''}`}
                                     style={{
                                       fontSize: `${(settings.fontActivity || (isExporting ? 15 : 12)) * dynamicScale * specialFontScale}px`,
                                       whiteSpace: isExporting ? 'normal' : 'pre-wrap',
@@ -424,7 +433,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                               </div>
                             ) : (
                               <div
-                                className="format-single-line font-black leading-tight w-full !text-center"
+                                className={`format-single-line font-black leading-tight w-full !text-center ${styleObj.isCancelled ? 'line-through text-slate-500 opacity-75' : ''}`}
                                 style={{
                                   fontSize: `${
                                     (settings.fontCardTitle
@@ -435,6 +444,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                                   overflow: isExporting ? 'visible' : 'hidden',
                                 }}
                               >
+                                {styleObj.isCancelled ? '[ยกเลิก] ' : ''}
                                 {!styleObj.isSpecial
                                   ? `${task.equipment_no} / ${task.product_line || '-'} / ${task.site_name}`
                                   : task.site_name}

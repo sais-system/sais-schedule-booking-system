@@ -36,8 +36,11 @@ interface DetailModalProps {
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onCancelBooking?: () => void;
+  onReactivateBooking?: () => void;
   onViewFile: (url: string) => void;
   onUpdateBooking?: (updated: Booking) => void;
+  onOpenOilTracking?: (equipmentNo?: string) => void;
 }
 
 export const DetailModal: React.FC<DetailModalProps> = ({
@@ -47,8 +50,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   onClose,
   onEdit,
   onDelete,
+  onCancelBooking,
+  onReactivateBooking,
   onViewFile,
   onUpdateBooking,
+  onOpenOilTracking,
 }) => {
   const { t, lang } = useTranslation();
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -193,6 +199,18 @@ export const DetailModal: React.FC<DetailModalProps> = ({
           </div>
         </div>
 
+        {booking.status === 'cancelled' && (
+          <div className="mb-4 p-3 bg-rose-50 border border-rose-300 rounded-2xl flex items-center justify-between gap-2 text-xs animate-fade-in">
+            <div className="flex items-center gap-2 text-rose-800 font-bold">
+              <Icons.AlertCircle className="text-rose-600 shrink-0" size={16} />
+              <span>คิวตรวจนี้ถูกยกเลิกแล้ว (ระบบบันทึกเก็บประวัติไว้)</span>
+            </div>
+            <span className="bg-rose-200/80 text-rose-900 text-[10px] font-black px-2 py-0.5 rounded-md shrink-0">
+              CANCELLED
+            </span>
+          </div>
+        )}
+
         <div className="space-y-4 text-sm text-slate-700">
           <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 grid grid-cols-2 gap-2">
             <div>
@@ -234,6 +252,39 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                   <span className="font-bold text-slate-800">{booking.area || '-'}</span>
                 </div>
               </div>
+
+              {/* SAIS Status / Inspection Result */}
+              {(booking.inspection_result || booking.sais_status) && (
+                <div
+                  className={`p-3 rounded-2xl border flex items-center justify-between gap-2 text-xs font-bold ${
+                    (booking.inspection_result || booking.sais_status || '').toLowerCase().includes('oil')
+                      ? 'bg-amber-50 border-amber-300 text-amber-900'
+                      : (booking.inspection_result || booking.sais_status || '').toLowerCase().includes('pass')
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                      : 'bg-rose-50 border-rose-300 text-rose-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icons.FileText size={16} />
+                    <div>
+                      <span className="text-[10px] opacity-75 block">ผลการตรวจ (SAIS Status)</span>
+                      <span className="font-black text-sm">{booking.inspection_result || booking.sais_status}</span>
+                    </div>
+                  </div>
+
+                  {(booking.inspection_result || booking.sais_status || '').toLowerCase().includes('oil') &&
+                    onOpenOilTracking && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenOilTracking(booking.equipment_no)}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <span>เปิด Tracking OIL</span>
+                        <Icons.ChevronRight size={14} />
+                      </button>
+                    )}
+                </div>
+              )}
 
               {(booking.technician_name || booking.tel) && (
                 <div className="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-200 text-xs space-y-1.5">
@@ -578,18 +629,51 @@ export const DetailModal: React.FC<DetailModalProps> = ({
 
         {canManage && (
           <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col gap-2">
-            <button
-              onClick={onEdit}
-              className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl border border-blue-200 flex items-center justify-center gap-2 text-xs transition-colors"
-            >
-              <Icons.Edit /> แก้ไขข้อมูลรายการนี้
-            </button>
+            {booking.status === 'cancelled' ? (
+              <>
+                {onReactivateBooking && (
+                  <button
+                    onClick={onReactivateBooking}
+                    className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl border border-emerald-200 flex items-center justify-center gap-2 text-xs transition-colors shadow-2xs"
+                  >
+                    <Icons.RefreshCw size={15} /> กู้คืนคิวตรวจกลับมาใช้งาน (Reactivate)
+                  </button>
+                )}
+                <button
+                  onClick={onEdit}
+                  className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-xs transition-colors"
+                >
+                  <Icons.Edit size={14} /> แก้ไขข้อมูลรายการนี้
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onEdit}
+                  className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl border border-blue-200 flex items-center justify-center gap-2 text-xs transition-colors"
+                >
+                  <Icons.Edit size={14} /> แก้ไขข้อมูลรายการนี้
+                </button>
+                {onCancelBooking && (
+                  <button
+                    onClick={onCancelBooking}
+                    className="w-full py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-xl border border-amber-300 flex items-center justify-center gap-2 text-xs transition-colors"
+                  >
+                    <Icons.AlertCircle size={15} /> ยกเลิกคิวตรวจ (เก็บประวัติไซต์งานไว้)
+                  </button>
+                )}
+              </>
+            )}
+
             <button
               onClick={onDelete}
-              className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-xl border border-red-200 flex items-center justify-center gap-2 text-xs transition-colors"
+              className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl border border-rose-200 flex items-center justify-center gap-2 text-xs transition-colors mt-1"
             >
-              <Icons.Trash /> ลบรายการนี้ออกจากระบบ
+              <Icons.Trash size={14} /> ลบรายการนี้ออกจากระบบ (ลบถาวร ไม่เก็บประวัติ)
             </button>
+            <p className="text-[10px] text-slate-400 text-center leading-tight">
+              * ยกเลิกคิวตรวจ จะคงรายการไว้ในตารางและบันทึกประวัติ ส่วนลบรายการจะลบข้อมูลออกถาวร
+            </p>
           </div>
         )}
       </div>

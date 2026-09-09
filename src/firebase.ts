@@ -10,7 +10,7 @@ import {
   writeBatch,
   enableIndexedDbPersistence,
 } from 'firebase/firestore';
-import { Booking, Inspector, User, WebSettings, SystemNotification, SystemLog } from './types';
+import { Booking, Inspector, User, WebSettings, SystemNotification, SystemLog, OilTrackingRecord } from './types';
 import {
   DEFAULT_INSPECTORS,
   DEFAULT_USERS,
@@ -54,6 +54,7 @@ export const COLLECTIONS = {
   SETTINGS: 'sais_settings',
   NOTIFICATIONS: 'sais_notifications',
   LOGS: 'sais_logs',
+  OIL_TRACKING: 'oil_tracking',
 };
 
 // Connection State Listener
@@ -149,6 +150,236 @@ export const subscribeFirebaseSettings = (callback: (settings: WebSettings) => v
     },
     (err) => console.warn('Firestore settings sync error:', err)
   );
+};
+
+export const subscribeFirebaseOilTracking = (callback: (records: OilTrackingRecord[]) => void) => {
+  const colRef = collection(firestoreDb, COLLECTIONS.OIL_TRACKING);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: OilTrackingRecord[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...(docSnap.data() as Omit<OilTrackingRecord, 'id'>) });
+      });
+      // Sort newest created or updated first
+      list.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      callback(list);
+    },
+    (err) => console.warn('Firestore oil tracking sync error:', err)
+  );
+};
+
+export const subscribeFirebaseNotifications = (callback: (notifications: SystemNotification[]) => void) => {
+  const colRef = collection(firestoreDb, COLLECTIONS.NOTIFICATIONS);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      if (!snapshot.empty) {
+        const list: SystemNotification[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as SystemNotification);
+        });
+        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        callback(list);
+      }
+    },
+    (err) => console.warn('Firestore notifications sync error:', err)
+  );
+};
+
+export const firestoreSaveNotification = async (notification: SystemNotification): Promise<void> => {
+  try {
+    const sanitized = sanitizeForFirestore(notification);
+    const docRef = doc(firestoreDb, COLLECTIONS.NOTIFICATIONS, sanitized.id);
+    await setDoc(docRef, sanitized, { merge: true });
+  } catch (err) {
+    console.warn('Failed to save notification to Firestore:', err);
+  }
+};
+
+export const firestoreBatchSaveNotifications = async (notifications: SystemNotification[]): Promise<void> => {
+  try {
+    const batch = writeBatch(firestoreDb);
+    notifications.forEach((n) => {
+      const sanitized = sanitizeForFirestore(n);
+      const docRef = doc(firestoreDb, COLLECTIONS.NOTIFICATIONS, sanitized.id);
+      batch.set(docRef, sanitized, { merge: true });
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn('Failed to batch save notifications to Firestore:', err);
+  }
+};
+
+/**
+ * Recursively cleans an object to ensure no `undefined` values exist,
+ * preventing Firestore `Function setDoc() called with invalid data` errors.
+ */
+export const sanitizeForFirestore = <T>(obj: T): T => {
+  if (obj === null || obj === undefined) return '' as any;
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeForFirestore(item)) as any;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, val] of Object.entries(obj)) {
+      if (val !== undefined) {
+        cleaned[key] = sanitizeForFirestore(val);
+      }
+    }
+    return cleaned as any;
+  }
+  return obj;
+};
+
+// Firestore Write Operations
+export const firestoreSaveOilRecord = async (record: OilTrackingRecord): Promise<void> => {
+  try {
+    updateStatus('syncing');
+    const sanitized = sanitizeForFirestore(record);
+    const docRef = doc(firestoreDb, COLLECTIONS.OIL_TRACKING, sanitized.id);
+    await setDoc(docRef, sanitized, { merge: true });
+    updateStatus('connected');
+  } catch (err) {
+    console.error('Failed to save oil tracking record to Firestore:', err);
+    updateStatus('offline');
+    throw err;
+  }
+};
+
+export const firestoreDeleteOilRecord = async (recordId: string): Promise<void> => {
+  try {
+    updateStatus('syncing');
+    const docRef = doc(firestoreDb, COLLECTIONS.OIL_TRACKING, recordId);
+    await deleteDoc(docRef);
+    updateStatus('connected');
+  } catch (err) {
+    console.error('Failed to delete oil record from Firestore:', err);
+    updateStatus('offline');
+    throw err;
+  }
+};
+
+export const firestoreBatchSaveOilRecords = async (records: OilTrackingRecord[]): Promise<void> => {
+  try {
+    updateStatus('syncing');
+    const batch = writeBatch(firestoreDb);
+    records.forEach((r) => {
+      const sanitized = sanitizeForFirestore(r);
+      const docRef = doc(firestoreDb, COLLECTIONS.OIL_TRACKING, sanitized.id);
+      batch.set(docRef, sanitized, { merge: true });
+    });
+    await batch.commit();
+    updateStatus('connected');
+  } catch (err) {
+    console.error('Failed to batch save oil records:', err);
+    updateStatus('offline');
+    throw err;
+  }
+};
+
+/**
+ * Automatically creates a document in oil_tracking when an inspection has inspection_result = 'pass with OIL'
+ * Extracts Equipment No., Site Name, Inspection Date with initial status 'Waiting for PDF'.
+ */
+export const autoSyncBookingToOilTracking = async (
+  booking: Booking,
+  existingOilRecords: OilTrackingRecord[]
+): Promise<OilTrackingRecord | null> => {
+  const resultStr = (booking.inspection_result || booking.sais_status || '').toLowerCase();
+  const isPassWithOil = resultStr.includes('pass with oil') || resultStr.includes('passed with oil');
+
+  if (!isPassWithOil) return null;
+
+  const eqNo = (booking.equipment_no || booking.id || '').trim();
+  const inspDate = booking.date || '';
+
+  if (!eqNo) return null;
+
+  // Check if an oil record already exists for this booking or equipment + date
+  const exists = existingOilRecords.find(
+    (r) =>
+      (r.booking_id && r.booking_id === booking.id) ||
+      (r.equipment_no.trim() === eqNo && r.inspection_date === inspDate)
+  );
+
+  if (exists) return null;
+
+  // Format ID
+  const cleanEq = eqNo.replace(/[^\w\u0E00-\u0E7F]/g, '_');
+  const cleanDate = inspDate.replace(/[^\d]/g, '');
+  const docId = `oil_${cleanEq}_${cleanDate || Date.now()}`;
+
+  const newRecord: OilTrackingRecord = {
+    id: docId,
+    equipment_no: eqNo,
+    site_name: booking.site_name || '',
+    inspection_date: inspDate,
+    inspector_name: booking.inspector_name || '',
+    status: 'Waiting for PDF',
+    items: [],
+    booking_id: booking.id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    source: 'auto',
+  };
+
+  await firestoreSaveOilRecord(newRecord);
+  return newRecord;
+};
+
+/**
+ * Scan all bookings and create oil_tracking records for any with inspection_result == 'pass with OIL'
+ */
+export const autoSyncAllBookingsToOilTracking = async (
+  bookings: Booking[],
+  existingOilRecords: OilTrackingRecord[]
+): Promise<number> => {
+  let createdCount = 0;
+  const currentRecords = [...existingOilRecords];
+
+  for (const b of bookings) {
+    const resultStr = (b.inspection_result || b.sais_status || '').toLowerCase();
+    const isPassWithOil = resultStr.includes('pass with oil') || resultStr.includes('passed with oil');
+    if (!isPassWithOil) continue;
+
+    const eqNo = (b.equipment_no || b.id || '').trim();
+    const inspDate = b.date || '';
+    if (!eqNo) continue;
+
+    const exists = currentRecords.find(
+      (r) =>
+        (r.booking_id && r.booking_id === b.id) ||
+        (r.equipment_no.trim() === eqNo && r.inspection_date === inspDate)
+    );
+
+    if (!exists) {
+      const cleanEq = eqNo.replace(/[^\w\u0E00-\u0E7F]/g, '_');
+      const cleanDate = inspDate.replace(/[^\d]/g, '');
+      const docId = `oil_${cleanEq}_${cleanDate || Date.now()}`;
+
+      const newRecord: OilTrackingRecord = {
+        id: docId,
+        equipment_no: eqNo,
+        site_name: b.site_name || '',
+        inspection_date: inspDate,
+        inspector_name: b.inspector_name || '',
+        supervisor: b.technician_name || '',
+        status: 'Waiting for PDF',
+        items: [],
+        booking_id: b.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        source: 'auto',
+      };
+
+      currentRecords.push(newRecord);
+      await firestoreSaveOilRecord(newRecord);
+      createdCount++;
+    }
+  }
+
+  return createdCount;
 };
 
 // Firestore Write Operations

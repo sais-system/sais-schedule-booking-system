@@ -80,6 +80,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [targetInspector, setTargetInspector] = useState(
     data?.inspector_name || (inspectors[0]?.name || '')
   );
+  const [showCertPopup, setShowCertPopup] = useState(false);
 
   // Filter product lines based on selected inspector's certificate
   const currentInspectorObj = inspectors.find((i) => i.name === targetInspector);
@@ -124,6 +125,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [showHelp, setShowHelp] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerTargetDoc, setScannerTargetDoc] = useState<DocumentTypeKey>('layout');
+  const [inspectionResult, setInspectionResult] = useState(data?.inspection_result || data?.sais_status || '');
 
   // Check completeness of required documents
   const hasLayout = Boolean(docUrls.layout);
@@ -283,6 +285,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       layout_doc: docUrls.layout ? 'true' : 'false',
       wiring_doc: docUrls.wiring ? 'true' : 'false',
       precheck_doc: docUrls.precheck ? 'true' : 'false',
+      inspection_result: inspectionResult || undefined,
+      sais_status: inspectionResult || data?.sais_status || undefined,
       status: 'active',
     };
 
@@ -463,13 +467,26 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>
+                    <span className="flex items-center gap-1.5">
                       <EditableText id="booking_label_product_line" defaultText="Product Line" />{' '}
                       <span className="text-red-500">*</span>
+                      {/* 5.2 Exclamation recommendation button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowCertPopup(true)}
+                        className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-[11px] shadow-2xs border border-amber-300 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+                        title="คลิกเพื่อดูรายการ Certificate ที่ผู้ตรวจท่านนี้ได้รับการรับรอง"
+                      >
+                        !
+                      </button>
                     </span>
-                    <span className="text-[10px] text-blue-600 font-normal">
-                      (กรองตาม Certificate)
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCertPopup(true)}
+                      className="text-[10px] text-amber-700 hover:text-amber-900 font-bold flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>ดู Certificate ({certifiedLines.length})</span>
+                    </button>
                   </label>
                   <select
                     value={productLine}
@@ -484,13 +501,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     ))}
                     <option value="อื่นๆโปรดระบุ">อื่นๆโปรดระบุ...</option>
                   </select>
-                  {/* Certificate Filter Status Indicator */}
-                  <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    <Icons.Check size={11} className="text-emerald-600 shrink-0" />
-                    <span className="truncate">
-                      Certificate {targetInspector || 'ผู้ตรวจ'}: {certifiedLines.join(', ')}
-                    </span>
-                  </div>
                 </div>
 
                 <div>
@@ -868,6 +878,37 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 })}
               </div>
 
+              {/* SAIS Inspection Result Selector */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Icons.FileText size={15} className="text-red-600" />
+                    <span>ผลการตรวจ SAIS (Inspection Result)</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    (เลือก 'pass with OIL' เพื่อนำไปสู่ TRACKING OIL)
+                  </span>
+                </div>
+
+                <select
+                  value={inspectionResult}
+                  onChange={(e) => setInspectionResult(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 focus:border-red-500 bg-white outline-none"
+                >
+                  <option value="">-- ยังไม่ระบุผล / รอผลตรวจ (Pending) --</option>
+                  <option value="Passed with Completed">Passed with Completed (ผ่านสมบูรณ์)</option>
+                  <option value="pass with OIL">pass with OIL (ผ่านโดยมีรายการแก้ไข OIL)</option>
+                  <option value="Failed">Failed (ไม่ผ่านการตรวจ)</option>
+                  <option value="ยกเลิก">ยกเลิก (Cancelled)</option>
+                </select>
+
+                {inspectionResult.toLowerCase().includes('oil') && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 font-bold flex items-center gap-1.5">
+                    <span>💡 ข้อมูลงานนี้จะเชื่อมต่อไปยังระบบ TRACKING OIL อัตโนมัติ เพื่อรออัปโหลด PDF 2 ฉบับ</span>
+                  </p>
+                )}
+              </div>
+
               {/* Submit Button with Validation status */}
               <button
                 type="submit"
@@ -917,6 +958,86 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             setAddressDetail(result.addressDetail);
           }}
         />
+      )}
+
+      {/* 5.2 Certificate Details Popup Modal */}
+      {showCertPopup && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-[999] animate-fade-in">
+          <div className="bg-white rounded-3xl p-5 w-full max-w-md shadow-2xl border border-slate-200 animate-pop space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-base shadow-2xs border border-amber-200">
+                  !
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    ข้อมูล Certificate ของผู้ตรวจ
+                  </h4>
+                  <p className="text-xs text-blue-600 font-bold">
+                    ผู้ตรวจ: {targetInspector || 'ไม่ได้ระบุ'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCertPopup(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold transition-colors"
+                title="ปิดหน้าต่าง"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-blue-50/70 p-3.5 rounded-2xl border border-blue-200/80 text-xs text-blue-900 space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-blue-950">
+                <Icons.Shield size={14} className="text-blue-600" />
+                <span>Product Lines ที่ได้รับการรับรองตามระบบ:</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                ข้อมูลดึงตรงจากการตั้งค่าผู้ตรวจของระบบ หากเลือกรุ่นที่ได้รับ Certificate ข้อมูลการลงคิวตรวจจะถูกต้องและแม่นยำ
+              </p>
+            </div>
+
+            {/* List of certified product lines */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-500 block mb-2">
+                เลือกรุ่นที่ต้องการตรวจ (แตะเพื่อเลือกทันที):
+              </span>
+              <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto custom-scrollbar p-1">
+                {certifiedLines.map((line) => (
+                  <button
+                    key={line}
+                    type="button"
+                    onClick={() => {
+                      setProductLine(line);
+                      setShowCertPopup(false);
+                    }}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      productLine === line
+                        ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400'
+                        : 'bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-700 border border-slate-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <span className="text-[11px]">✓</span> {line}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+              <span className="text-[10px] text-slate-400">
+                ได้รับรองทั้งหมด {certifiedLines.length} รุ่น
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCertPopup(false)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-xs transition-colors"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

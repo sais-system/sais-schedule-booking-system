@@ -135,6 +135,8 @@ export const DEFAULT_SETTINGS: WebSettings = {
   // Google Drive Cloud Storage Config (15GB free tier integration)
   gdriveRootFolderId: '1_SAIS_DOCS_ROOT',
   gdriveRootFolderUrl: 'https://drive.google.com/drive/folders/',
+  gdriveOilFolderId: '1_SAIS_OIL_TRACKING_DOCS_ROOT',
+  gdriveOilFolderUrl: 'https://drive.google.com/drive/folders/',
   gdriveAutoOrganizeByProject: true,
 
   // Firebase Cloud Configuration (Real production project)

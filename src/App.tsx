@@ -8,6 +8,7 @@ import {
   SystemNotification,
   SystemLog,
   DayInfo,
+  OilTrackingRecord,
 } from './types';
 import {
   getThaiTime,
@@ -24,6 +25,8 @@ import {
   saveSettingsToStorage,
   saveNotifsToStorage,
   logActivityAction,
+  loadOilRecordsFromStorage,
+  saveOilRecordsToStorage,
 } from './storage';
 import {
   firestoreSaveBooking,
@@ -36,6 +39,11 @@ import {
   subscribeFirebaseInspectors,
   subscribeFirebaseUsers,
   subscribeFirebaseSettings,
+  subscribeFirebaseOilTracking,
+  subscribeFirebaseNotifications,
+  firestoreSaveNotification,
+  firestoreBatchSaveNotifications,
+  autoSyncAllBookingsToOilTracking,
   onFirebaseStatusChange,
   seedInitialCloudData,
 } from './firebase';
@@ -87,7 +95,8 @@ export default function App() {
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'syncing' | 'offline' | 'error'>('connected');
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [showSaisDatabases, setShowSaisDatabases] = useState(false);
-  const [saisDatabasesTab, setSaisDatabasesTab] = useState<'databases' | 'dashboard'>('databases');
+  const [saisDatabasesTab, setSaisDatabasesTab] = useState<'databases' | 'oil_tracking'>('oil_tracking');
+  const [oilRecords, setOilRecords] = useState<OilTrackingRecord[]>(() => loadOilRecordsFromStorage());
   const [isNavVisible, setIsNavVisible] = useState(true);
 
   // Auto-hide bottom navigation on scroll
@@ -256,14 +265,39 @@ export default function App() {
       }
     });
 
+    const unsubOilTracking = subscribeFirebaseOilTracking((cloudOilRecords) => {
+      if (cloudOilRecords) {
+        setOilRecords(cloudOilRecords);
+        saveOilRecordsToStorage(cloudOilRecords);
+      }
+    });
+
+    const unsubNotifications = subscribeFirebaseNotifications((cloudNotifs) => {
+      if (cloudNotifs && cloudNotifs.length > 0) {
+        setNotifications(cloudNotifs);
+        saveNotifsToStorage(cloudNotifs);
+      }
+    });
+
     return () => {
       unsubStatus();
       unsubBookings();
       unsubInspectors();
       unsubUsers();
       unsubSettings();
+      unsubOilTracking();
+      unsubNotifications();
     };
   }, []);
+
+  // Automatic Background Sync for 'pass with OIL' bookings
+  useEffect(() => {
+    if (bookings && bookings.length > 0) {
+      autoSyncAllBookingsToOilTracking(bookings, oilRecords).catch((err) => {
+        console.warn('Auto sync pass with OIL bookings failed:', err);
+      });
+    }
+  }, [bookings.length]);
 
   // Save UI scale settings
   useEffect(() => {
@@ -454,6 +488,24 @@ export default function App() {
     e.currentTarget.classList.add('bg-blue-50', 'border-2', 'border-blue-400', 'border-dashed');
   };
 
+  const pushNotification = useCallback(
+    (notif: Omit<SystemNotification, 'id' | 'timestamp' | 'isRead'>) => {
+      const newNotif: SystemNotification = {
+        ...notif,
+        id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: new Date().toISOString(),
+        isRead: 'false',
+      };
+      setNotifications((prev) => {
+        const updated = [newNotif, ...prev.slice(0, 99)];
+        saveNotifsToStorage(updated);
+        firestoreSaveNotification(newNotif).catch(() => {});
+        return updated;
+      });
+    },
+    []
+  );
+
   const handleDragLeave = (e: React.DragEvent) => {
     e.currentTarget.classList.remove('bg-blue-50', 'border-2', 'border-blue-400', 'border-dashed');
   };
@@ -508,6 +560,12 @@ export default function App() {
         saveBookingsToStorage(updated);
         firestoreSaveBooking(updatedTask);
         logSystem('MOVE BOOKING', `ย้าย ${task.site_name} ไปวันที่ ${targetDate} ผู้ตรวจ ${targetInspector}`);
+        pushNotification({
+          title: `ย้ายคิวตรวจ: ${task.site_name || task.equipment_no}`,
+          message: `ย้ายจากวันที่ ${task.date} (${task.inspector_name}) ➔ วันที่ ${targetDate} (${targetInspector}) โดย ${currentUser?.username || 'Admin'}`,
+          type: 'move',
+          bookingId: task.id,
+        });
         setSuccessModal('ย้ายคิวงานสำเร็จเรียบร้อย');
       },
     });
@@ -532,6 +590,12 @@ export default function App() {
         saveBookingsToStorage(updated);
         firestoreDeleteBooking(task.id);
         logSystem('DELETE VIA TRASH', `ลบรายการ ${task.site_name || task.equipment_no}`);
+        pushNotification({
+          title: `ลบคิวตรวจ: ${task.site_name || task.equipment_no}`,
+          message: `ลบรายการ ${task.site_name || task.equipment_no} วันที่ ${task.date} ลงถังขยะโดย ${currentUser?.username || 'Admin'}`,
+          type: 'delete',
+          bookingId: task.id,
+        });
         setSuccessModal('ลบรายการลงถังขยะสำเร็จ');
       },
     });
@@ -556,7 +620,13 @@ export default function App() {
       const existing = bookings.find((b) => b.id === formData.id);
       targetBooking = { ...existing, ...formData } as Booking;
       updated = bookings.map((b) => (b.id === formData.id ? targetBooking : b));
-      logSystem('UPDATE BOOKING', `แก้ไขคิวงาน: ${formData.site_name} (${formData.date})`);
+      logSystem('UPDATE BOOKING', `แก้ไขคิวงาน: ${formData.site_name || targetBooking.equipment_no} (${targetBooking.date})`);
+      pushNotification({
+        title: `แก้ไขคิวตรวจ: ${targetBooking.site_name || targetBooking.equipment_no}`,
+        message: `${currentUser?.username || 'ผู้ใช้'} ได้แก้ไขรายละเอียดคิวตรวจ วันที่ ${targetBooking.date} (${targetBooking.inspector_name})`,
+        type: 'edit',
+        bookingId: targetBooking.id,
+      });
       setSuccessModal('แก้ไขคิวงานสำเร็จ');
     } else {
       // Create new
@@ -567,7 +637,13 @@ export default function App() {
         status: 'active',
       } as Booking;
       updated = [targetBooking, ...bookings];
-      logSystem('CREATE BOOKING', `จองคิวงานใหม่: ${targetBooking.site_name} (${targetBooking.date})`);
+      logSystem('CREATE BOOKING', `จองคิวงานใหม่: ${targetBooking.site_name || targetBooking.equipment_no} (${targetBooking.date})`);
+      pushNotification({
+        title: `เพิ่มคิวตรวจใหม่: ${targetBooking.site_name || targetBooking.equipment_no}`,
+        message: `${currentUser?.username || 'ผู้ใช้'} จองคิวตรวจวันที่ ${targetBooking.date} ผู้ตรวจ: ${targetBooking.inspector_name} ลิฟต์: ${targetBooking.equipment_no || '-'}`,
+        type: 'add',
+        bookingId: targetBooking.id,
+      });
       setSuccessModal('จองคิวงานสำเร็จ');
     }
     setBookings(updated);
@@ -577,10 +653,10 @@ export default function App() {
     setModal(null);
   };
 
-  // Delete Booking
+  // Delete Booking (Permanent)
   const handleDeleteBooking = (booking: Booking) => {
     setConfirmDialog({
-      msg: `ยืนยันการลบรายการ "${booking.site_name || booking.equipment_no}" ใช่หรือไม่?`,
+      msg: `ยืนยันการลบรายการ "${booking.site_name || booking.equipment_no}" ออกจากระบบถาวรใช่หรือไม่?`,
       onConfirm: () => {
         setConfirmDialog(null);
         setModal(null);
@@ -589,9 +665,66 @@ export default function App() {
         saveBookingsToStorage(updated);
         firestoreDeleteBooking(booking.id);
         logSystem('DELETE BOOKING', `ลบรายการ: ${booking.site_name || booking.equipment_no}`);
+        pushNotification({
+          title: `ลบคิวตรวจถาวร: ${booking.site_name || booking.equipment_no}`,
+          message: `ลบคิวตรวจวันที่ ${booking.date} (${booking.inspector_name}) ลิฟต์ ${booking.equipment_no || '-'} ออกจากระบบถาวร`,
+          type: 'delete',
+          bookingId: booking.id,
+        });
         setSuccessModal('ลบข้อมูลสำเร็จ');
       },
     });
+  };
+
+  // Cancel Booking (Soft delete / Keeps history on calendar)
+  const handleCancelBooking = (booking: Booking) => {
+    setConfirmDialog({
+      msg: (
+        <div className="space-y-2 text-left">
+          <p className="font-bold text-slate-800 text-sm">
+            ยืนยันการยกเลิกคิวตรวจ "{booking.site_name || booking.equipment_no}" ใช่หรือไม่?
+          </p>
+          <p className="text-xs text-slate-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200 leading-relaxed">
+            📌 <b>การยกเลิกคิวตรวจ:</b> ระบบจะคงรายการไว้บนตารางปฏิทิน (แสดงสถานะขีดฆ่า [ยกเลิกคิว]) และบันทึกประวัติไว้ครบถ้วน สามารถเปิดใช้งานใหม่ได้ทุกเมื่อ
+          </p>
+        </div>
+      ),
+      onConfirm: () => {
+        setConfirmDialog(null);
+        setModal(null);
+        const updatedBooking = { ...booking, status: 'cancelled' as const };
+        const updated = bookings.map((b) => (b.id === booking.id ? updatedBooking : b));
+        setBookings(updated);
+        saveBookingsToStorage(updated);
+        firestoreSaveBooking(updatedBooking);
+        logSystem('CANCEL BOOKING', `ยกเลิกคิวตรวจ: ${booking.site_name || booking.equipment_no}`);
+        pushNotification({
+          title: `ยกเลิกคิวตรวจ: ${booking.site_name || booking.equipment_no}`,
+          message: `ยกเลิกคิวตรวจวันที่ ${booking.date} (${booking.inspector_name}) โดย ${currentUser?.username || 'Admin'} (เก็บประวัติไซต์งานไว้)`,
+          type: 'cancel',
+          bookingId: booking.id,
+        });
+        setSuccessModal('ยกเลิกคิวตรวจและบันทึกประวัติไว้เรียบร้อย');
+      },
+    });
+  };
+
+  // Reactivate cancelled booking
+  const handleReactivateBooking = (booking: Booking) => {
+    const updatedBooking = { ...booking, status: 'active' as const };
+    const updated = bookings.map((b) => (b.id === booking.id ? updatedBooking : b));
+    setBookings(updated);
+    saveBookingsToStorage(updated);
+    firestoreSaveBooking(updatedBooking);
+    logSystem('REACTIVATE BOOKING', `กู้คืนคิวตรวจ: ${booking.site_name || booking.equipment_no}`);
+    pushNotification({
+      title: `กู้คืนคิวตรวจ: ${booking.site_name || booking.equipment_no}`,
+      message: `เปิดใช้งานคิวตรวจวันที่ ${booking.date} (${booking.inspector_name}) ใหม่อีกครั้ง โดย ${currentUser?.username || 'Admin'}`,
+      type: 'edit',
+      bookingId: booking.id,
+    });
+    setModal({ type: 'detail', data: updatedBooking });
+    setSuccessModal('กู้คืนคิวตรวจเรียบร้อยแล้ว');
   };
 
   // Document verification toggle
@@ -826,28 +959,49 @@ export default function App() {
         <span className="trash-text">{isTrashHovered ? 'ปล่อยเพื่อลบทิ้ง!' : 'ลากมาทิ้งที่นี่'}</span>
       </div>
 
-      {/* TOP HEADER: SINGLE CLEAN ROW (Site Title, Cloud Status, Tutorial, Settings, User Profile) */}
-      <header className="main-header border-b border-slate-800/80 px-2.5 sm:px-4 py-2 flex flex-row items-center justify-between z-30 shrink-0 min-h-[46px] bg-slate-900 text-white shadow-xs">
-        {/* Left: App Logo & Site Title */}
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 mr-2">
-          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-red-600 text-white font-black flex items-center justify-center text-xs sm:text-sm shadow-sm shrink-0">
-            S
-          </div>
-          <div className="min-w-0 flex items-center gap-2">
-            <EditableText
-              id="site_title"
-              defaultText={settings.appName || 'SAIS SCHEDULE BOOKING & LIFT INSPECTION'}
-              customTexts={settings.customTexts}
-              isAdmin={isAdmin}
-              isLiveEdit={settings.isLiveEdit}
-              onSaveText={handleSaveCustomText}
-              className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white truncate"
-              tag="h1"
-            />
+      {/* TOP HEADER: Clean responsive header. Stacks into separate lines on mobile to prevent overlapping */}
+      <header className="main-header border-b border-slate-800/80 px-2.5 sm:px-4 py-1.5 sm:py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2 z-30 shrink-0 bg-slate-900 text-white shadow-xs">
+        {/* Line 1 (Mobile) / Left (Desktop): App Logo & Site Title (Separate line on phones) */}
+        <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0 w-full sm:w-auto">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-red-600 text-white font-black flex items-center justify-center text-xs sm:text-sm shadow-sm shrink-0">
+              S
+            </div>
+            <div className="min-w-0 flex-1">
+              <EditableText
+                id="site_title"
+                defaultText={settings.appName || 'SAIS SCHEDULE BOOKING & LIFT INSPECTION'}
+                customTexts={settings.customTexts}
+                isAdmin={isAdmin}
+                isLiveEdit={settings.isLiveEdit}
+                onSaveText={handleSaveCustomText}
+                className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white block truncate"
+                tag="h1"
+              />
+            </div>
           </div>
 
-          {/* Realtime Firebase Badge on Top Bar */}
-          <div className="hidden md:flex items-center gap-1.5 text-[9px] sm:text-[10px] bg-slate-800/90 border border-slate-700/60 px-2 sm:px-2.5 py-0.5 rounded-full shrink-0 ml-1">
+          {/* Mobile Cloud Status Pill */}
+          <div className="flex sm:hidden items-center gap-1 text-[9px] bg-slate-800 border border-slate-700/60 px-2 py-0.5 rounded-full shrink-0">
+            <span
+              className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                cloudStatus === 'connected'
+                  ? 'bg-emerald-400'
+                  : cloudStatus === 'syncing'
+                  ? 'bg-amber-400 animate-spin'
+                  : 'bg-slate-400'
+              }`}
+            />
+            <span className="text-slate-300 font-medium">
+              {cloudStatus === 'connected' ? 'Firebase' : 'Sync'}
+            </span>
+          </div>
+        </div>
+
+        {/* Line 2 (Mobile) / Right (Desktop): Menu and utility actions */}
+        <div className="flex items-center justify-between sm:justify-end gap-1 sm:gap-1.5 relative w-full sm:w-auto shrink-0 pt-1 sm:pt-0 border-t border-slate-800/60 sm:border-t-0">
+          {/* Realtime Firebase Badge (Desktop) */}
+          <div className="hidden sm:flex items-center gap-1.5 text-[9px] sm:text-[10px] bg-slate-800/90 border border-slate-700/60 px-2 sm:px-2.5 py-0.5 rounded-full shrink-0 mr-1">
             <span
               className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
                 cloudStatus === 'connected'
@@ -869,10 +1023,6 @@ export default function App() {
               </span>
             </span>
           </div>
-        </div>
-
-        {/* Right utility actions */}
-        <div className="flex items-center gap-1 sm:gap-1.5 relative shrink-0">
           {/* Tutorial Simulation & Handbook Button */}
           <button
             type="button"
@@ -2444,8 +2594,9 @@ export default function App() {
       {/* Bottom Navigation (Auto-Hide on scroll) */}
       <nav className={`bottom-nav ${!isNavVisible ? 'nav-hidden' : ''}`}>
         <div
-          className={`nav-item ${currentView === 'calendar' ? 'active' : ''}`}
+          className={`nav-item ${currentView === 'calendar' && !showSaisDatabases ? 'active' : ''}`}
           onClick={() => {
+            setShowSaisDatabases(false);
             setCurrentView('calendar');
             setIsNavVisible(true);
           }}
@@ -2463,8 +2614,9 @@ export default function App() {
           </span>
         </div>
         <div
-          className={`nav-item ${currentView === 'search' ? 'active' : ''}`}
+          className={`nav-item ${currentView === 'search' && !showSaisDatabases ? 'active' : ''}`}
           onClick={() => {
+            setShowSaisDatabases(false);
             setCurrentView('search');
             setIsNavVisible(true);
           }}
@@ -2483,8 +2635,9 @@ export default function App() {
         </div>
         {isAdmin && (
           <div
-            className={`nav-item ${currentView === 'documents' ? 'active' : ''}`}
+            className={`nav-item ${currentView === 'documents' && !showSaisDatabases ? 'active' : ''}`}
             onClick={() => {
+              setShowSaisDatabases(false);
               setCurrentView('documents');
               setIsNavVisible(true);
             }}
@@ -2504,8 +2657,9 @@ export default function App() {
         )}
         {currentUser && !isAdmin && currentUser.role !== 'viewer' && (
           <div
-            className={`nav-item ${currentView === 'my_bookings' ? 'active' : ''}`}
+            className={`nav-item ${currentView === 'my_bookings' && !showSaisDatabases ? 'active' : ''}`}
             onClick={() => {
+              setShowSaisDatabases(false);
               setCurrentView('my_bookings');
               setIsNavVisible(true);
             }}
@@ -2528,6 +2682,7 @@ export default function App() {
           onClick={() => {
             setSaisDatabasesTab('databases');
             setShowSaisDatabases(true);
+            setIsNavVisible(true);
           }}
           title="เปิด SAIS DATABASE (Pending Records)"
         >
@@ -2544,18 +2699,19 @@ export default function App() {
           </span>
         </div>
         <div
-          className={`nav-item ${showSaisDatabases && saisDatabasesTab === 'dashboard' ? 'active text-red-600 font-black' : ''}`}
+          className={`nav-item ${showSaisDatabases && saisDatabasesTab === 'oil_tracking' ? 'active text-red-600 font-black' : ''}`}
           onClick={() => {
-            setSaisDatabasesTab('dashboard');
+            setSaisDatabasesTab('oil_tracking');
             setShowSaisDatabases(true);
+            setIsNavVisible(true);
           }}
-          title="เปิด SAIS DASHBOARD (Analytics & Charts)"
+          title="เปิดระบบ TRACKING OIL (Open Item List)"
         >
-          <Icons.Chart />
+          <Icons.FileText />
           <span>
             <EditableText
-              id="nav_dashboard"
-              defaultText="DASHBOARD"
+              id="nav_oil_tracking"
+              defaultText="TRACKING OIL"
               customTexts={settings.customTexts}
               isAdmin={isAdmin}
               isLiveEdit={settings.isLiveEdit}
@@ -2565,8 +2721,9 @@ export default function App() {
         </div>
         {isAdmin && (
           <div
-            className={`nav-item ${currentView === 'admin' ? 'active' : ''}`}
+            className={`nav-item ${currentView === 'admin' && !showSaisDatabases ? 'active' : ''}`}
             onClick={() => {
+              setShowSaisDatabases(false);
               setCurrentView('admin');
               setAdminTab('menu');
               setIsNavVisible(true);
@@ -2641,7 +2798,7 @@ export default function App() {
       )}
 
       {modal?.type === 'detail' && (
-        <div className="backdrop z-[100] p-4 flex items-center justify-center">
+        <div className="backdrop z-[100] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
           <DetailModal
             booking={modal.data}
             isAdmin={isAdmin}
@@ -2649,7 +2806,14 @@ export default function App() {
             onClose={() => setModal(null)}
             onEdit={() => setModal({ type: 'booking', data: modal.data })}
             onDelete={() => handleDeleteBooking(modal.data)}
+            onCancelBooking={() => handleCancelBooking(modal.data)}
+            onReactivateBooking={() => handleReactivateBooking(modal.data)}
             onViewFile={(url) => setViewFileUrl(url)}
+            onOpenOilTracking={() => {
+              setModal(null);
+              setSaisDatabasesTab('oil_tracking');
+              setShowSaisDatabases(true);
+            }}
             onUpdateBooking={(updated) => {
               handleUpdateSingleBooking(updated);
               setModal({ type: 'detail', data: updated });
@@ -2790,6 +2954,17 @@ export default function App() {
             const updated = notifications.map((n) => (n.id === id ? { ...n, isRead: 'true' } : n));
             setNotifications(updated);
             saveNotifsToStorage(updated);
+            firestoreBatchSaveNotifications(updated).catch(() => {});
+          }}
+          onMarkAllRead={() => {
+            const updated = notifications.map((n) => ({ ...n, isRead: 'true' }));
+            setNotifications(updated);
+            saveNotifsToStorage(updated);
+            firestoreBatchSaveNotifications(updated).catch(() => {});
+          }}
+          onClearAllNotifs={() => {
+            setNotifications([]);
+            saveNotifsToStorage([]);
           }}
         />
       )}
@@ -2883,7 +3058,7 @@ export default function App() {
         />
       )}
 
-      {/* SAIS DATABASES Modal Window (Unified Database & Analytics) */}
+      {/* SAIS DATABASES Modal Window (Unified Database & Tracking OIL) */}
       {showSaisDatabases && (
         <SaisDatabasesModal
           bookings={bookings}
@@ -2892,6 +3067,7 @@ export default function App() {
           currentUser={currentUser}
           cloudStatus={cloudStatus}
           initialTab={saisDatabasesTab}
+          oilRecords={oilRecords}
           onClose={() => setShowSaisDatabases(false)}
           onSaveBooking={handleSaveBooking}
           onDeleteBooking={handleDeleteBooking}

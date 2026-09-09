@@ -4,8 +4,10 @@
 export interface GoogleDriveConfig {
   clientId?: string;
   apiKey?: string;
-  folderId?: string;
+  folderId?: string; // General PDF & Images (Drawing, Wiring, Precheck)
   rootFolderUrl?: string;
+  oilFolderId?: string; // Dedicated OIL Reports & Checklists Folder
+  oilFolderUrl?: string;
 }
 
 const STORAGE_KEY_GDRIVE_CONFIG = 'sais_gdrive_config_v1';
@@ -20,6 +22,8 @@ export const getGoogleDriveConfig = (): GoogleDriveConfig => {
   return {
     folderId: '1_SAIS_LIFT_ESCALATOR_DOCS_ROOT',
     rootFolderUrl: 'https://drive.google.com/drive/folders/',
+    oilFolderId: '1_SAIS_OIL_TRACKING_DOCS_ROOT',
+    oilFolderUrl: 'https://drive.google.com/drive/folders/',
   };
 };
 

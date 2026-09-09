@@ -50,7 +50,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   onExportJPG,
 }) => {
   const { lang } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'system' | 'concurrency' | 'firebase' | 'inspectors' | 'users' | 'display'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'display' | 'firebase' | 'gdrive'>('system');
 
   // Form states for settings
   const [formData, setFormData] = useState<WebSettings>({
@@ -331,69 +331,48 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('system')}
-            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'system'
                 ? 'border-blue-600 text-blue-600 bg-white rounded-t-xl shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Icons.Settings /> {lang === 'th' ? 'ระบบทั่วไป' : 'General'}
+            <Icons.Settings size={14} /> {lang === 'th' ? 'ระบบทั่วไป' : 'General'}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('display')}
-            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'display'
                 ? 'border-blue-600 text-blue-600 bg-white rounded-t-xl shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Icons.Chart /> {lang === 'th' ? 'การแสดงผล & ตาราง' : 'Display & Grid'}
+            <Icons.Chart size={14} /> {lang === 'th' ? 'การแสดงผล & ตาราง' : 'Display & Grid'}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('firebase')}
-            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'firebase'
                 ? 'border-orange-500 text-orange-600 bg-white rounded-t-xl shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Icons.Shield /> {lang === 'th' ? 'Firebase Cloud' : 'Firebase'}
+            <Icons.Shield size={14} /> {lang === 'th' ? 'Firebase Cloud' : 'Firebase'}
             {isFirebaseLocked ? <span className="text-[10px]">🔒</span> : <span className="text-[10px]">🔓</span>}
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('concurrency')}
-            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'concurrency'
-                ? 'border-blue-600 text-blue-600 bg-white rounded-t-xl shadow-xs'
+            onClick={() => setActiveTab('gdrive')}
+            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === 'gdrive'
+                ? 'border-emerald-600 text-emerald-600 bg-white rounded-t-xl shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Icons.Flame /> {lang === 'th' ? 'ความจุ (300-500 คน)' : 'Capacity'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('inspectors')}
-            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'inspectors'
-                ? 'border-blue-600 text-blue-600 bg-white rounded-t-xl shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Icons.User /> {lang === 'th' ? 'ผู้ตรวจ (10 คน)' : 'Inspectors'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('users')}
-            className={`px-3 py-2 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'users'
-                ? 'border-blue-600 text-blue-600 bg-white rounded-t-xl shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Icons.Shield /> {lang === 'th' ? 'ผู้ใช้ & สิทธิ์' : 'Users'}
+            <Icons.Cloud size={14} /> {lang === 'th' ? 'Google Drive (Folder ID)' : 'Google Drive'}
+            {isGdriveLocked ? <span className="text-[10px]">🔒</span> : <span className="text-[10px]">🔓</span>}
           </button>
         </div>
 
@@ -1080,21 +1059,21 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                 )}
               </div>
 
-              {/* Locked / Editable Inputs */}
+              {/* Locked / Editable Inputs with Security Masking */}
               <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
                 <div>
                   <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
                     {isFirebaseLocked && <span>🔒</span>} Firebase Project ID:
                   </label>
                   <input
-                    type="text"
+                    type={isFirebaseLocked ? "password" : "text"}
                     disabled={isFirebaseLocked}
                     readOnly={isFirebaseLocked}
-                    value={formData.firebaseProjectId || 'sais-schedule-booking'}
+                    value={isFirebaseLocked ? '••••••••••••••••' : (formData.firebaseProjectId || 'sais-schedule-booking')}
                     onChange={(e) => setFormData({ ...formData, firebaseProjectId: e.target.value })}
                     className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
                       isFirebaseLocked
-                        ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300 select-none'
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
                         : 'bg-white text-slate-800 font-bold border-blue-400 focus:ring-2 focus:ring-blue-500'
                     }`}
                   />
@@ -1106,14 +1085,14 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       {isFirebaseLocked && <span>🔒</span>} API Key:
                     </label>
                     <input
-                      type="text"
+                      type={isFirebaseLocked ? "password" : "text"}
                       disabled={isFirebaseLocked}
                       readOnly={isFirebaseLocked}
-                      value={formData.firebaseApiKey || 'AIzaSyBOqWqVBTLdr2se2Ktc5SwjXglb55n69go'}
+                      value={isFirebaseLocked ? '••••••••••••••••••••••••••••••••••••' : (formData.firebaseApiKey || 'AIzaSyBOqWqVBTLdr2se2Ktc5SwjXglb55n69go')}
                       onChange={(e) => setFormData({ ...formData, firebaseApiKey: e.target.value })}
                       className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
                         isFirebaseLocked
-                          ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300 select-none'
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
                           : 'bg-white text-slate-800 font-bold border-blue-400 focus:ring-2 focus:ring-blue-500'
                       }`}
                     />
@@ -1124,14 +1103,14 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       {isFirebaseLocked && <span>🔒</span>} Auth Domain:
                     </label>
                     <input
-                      type="text"
+                      type={isFirebaseLocked ? "password" : "text"}
                       disabled={isFirebaseLocked}
                       readOnly={isFirebaseLocked}
-                      value={formData.firebaseAuthDomain || 'sais-schedule-booking.firebaseapp.com'}
+                      value={isFirebaseLocked ? '••••••••••••••••••••••••••••••••' : (formData.firebaseAuthDomain || 'sais-schedule-booking.firebaseapp.com')}
                       onChange={(e) => setFormData({ ...formData, firebaseAuthDomain: e.target.value })}
                       className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
                         isFirebaseLocked
-                          ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300 select-none'
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
                           : 'bg-white text-slate-800 font-bold border-blue-400 focus:ring-2 focus:ring-blue-500'
                       }`}
                     />
@@ -1144,14 +1123,14 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       {isFirebaseLocked && <span>🔒</span>} Storage Bucket:
                     </label>
                     <input
-                      type="text"
+                      type={isFirebaseLocked ? "password" : "text"}
                       disabled={isFirebaseLocked}
                       readOnly={isFirebaseLocked}
-                      value={formData.firebaseStorageBucket || 'sais-schedule-booking.firebasestorage.app'}
+                      value={isFirebaseLocked ? '••••••••••••••••••••••••••••••••' : (formData.firebaseStorageBucket || 'sais-schedule-booking.firebasestorage.app')}
                       onChange={(e) => setFormData({ ...formData, firebaseStorageBucket: e.target.value })}
                       className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
                         isFirebaseLocked
-                          ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300 select-none'
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
                           : 'bg-white text-slate-800 font-bold border-blue-400 focus:ring-2 focus:ring-blue-500'
                       }`}
                     />
@@ -1162,16 +1141,16 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       {isFirebaseLocked && <span>🔒</span>} Messaging Sender ID:
                     </label>
                     <input
-                      type="text"
+                      type={isFirebaseLocked ? "password" : "text"}
                       disabled={isFirebaseLocked}
                       readOnly={isFirebaseLocked}
-                      value={formData.firebaseMessagingSenderId || '908596453130'}
+                      value={isFirebaseLocked ? '••••••••••••' : (formData.firebaseMessagingSenderId || '908596453130')}
                       onChange={(e) =>
                         setFormData({ ...formData, firebaseMessagingSenderId: e.target.value })
                       }
                       className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
                         isFirebaseLocked
-                          ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300 select-none'
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
                           : 'bg-white text-slate-800 font-bold border-blue-400 focus:ring-2 focus:ring-blue-500'
                       }`}
                     />
@@ -1183,14 +1162,14 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                     {isFirebaseLocked && <span>🔒</span>} App ID:
                   </label>
                   <input
-                    type="text"
+                    type={isFirebaseLocked ? "password" : "text"}
                     disabled={isFirebaseLocked}
                     readOnly={isFirebaseLocked}
-                    value={formData.firebaseAppId || '1:908596453130:web:e34a5769730672a1d6a4f3'}
+                    value={isFirebaseLocked ? '••••••••••••••••••••••••••••••••••••' : (formData.firebaseAppId || '1:908596453130:web:e34a5769730672a1d6a4f3')}
                     onChange={(e) => setFormData({ ...formData, firebaseAppId: e.target.value })}
                     className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
                       isFirebaseLocked
-                        ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300 select-none'
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
                         : 'bg-white text-slate-800 font-bold border-blue-400 focus:ring-2 focus:ring-blue-500'
                     }`}
                   />
@@ -1199,284 +1178,168 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: CONCURRENCY & CAPACITY ENGINE */}
-          {activeTab === 'concurrency' && (
+          {/* TAB 4: GOOGLE DRIVE (FOR PDFS & IMAGES STORAGE - PASSWORD PROTECTED) */}
+          {activeTab === 'gdrive' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                    <Icons.Flame size={16} className="text-indigo-600" />
-                    ระบบรองรับการใช้งานพร้อมกันสูง (High Concurrency 300-500 Users)
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 border-2 border-emerald-300 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                    <Icons.Cloud size={16} className="text-emerald-600" />
+                    การเชื่อมต่อ Google Drive จัดเก็บไฟล์ PDF & รูปภาพ
                   </h4>
-                  <span className="text-[10px] bg-indigo-600 text-white font-bold px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
-                </div>
-                <p className="text-[11px] text-indigo-900 mt-1 leading-relaxed">
-                  สถาปัตยกรรม WebSocket Realtime Data Stream พร้อม LocalStorage Cache ป้องกันเซิร์ฟเวอร์ล่มเมื่อมีผู้เปิดดูพร้อมกัน 300-500 คน
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
-                  <label className="font-bold text-slate-700 block mb-1">
-                    ขีดจำกัดผู้เปิดดูตารางพร้อมกัน (คน):
-                  </label>
-                  <input
-                    type="number"
-                    min={50}
-                    max={2000}
-                    value={formData.maxConcurrentViewers || 500}
-                    onChange={(e) =>
-                      setFormData({ ...formData, maxConcurrentViewers: Number(e.target.value) })
-                    }
-                    className="w-full text-xs p-2 rounded-xl border border-slate-300 font-bold bg-white"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">แนะนำ 500 คนสำหรับโครงการ SAIS</span>
-                </div>
-
-                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
-                  <label className="font-bold text-slate-700 block mb-1">
-                    โควตางานจองสูงสุดต่อวันต่อผู้ตรวจ:
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={formData.maxDailyBookingsPerInspector || 6}
-                    onChange={(e) =>
-                      setFormData({ ...formData, maxDailyBookingsPerInspector: Number(e.target.value) })
-                    }
-                    className="w-full text-xs p-2 rounded-xl border border-slate-300 font-bold bg-white"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">มาตรฐาน: 6 งาน/วัน</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: INSPECTORS MANAGEMENT (10 INSPECTORS) */}
-          {activeTab === 'inspectors' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">
-                    รายชื่อผู้ตรวจ SAIS ทั้งหมด ({inspectorList.length} คน)
-                  </h4>
-                  <span className="text-[11px] text-slate-500">
-                    กำหนดโมเดลที่ผู้ตรวจแต่ละท่านมีใบรับรองความชำนาญ (Certificates)
-                  </span>
-                </div>
-                <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                  10 คนพร้อมปฏิบัติงาน
-                </span>
-              </div>
-
-              {/* List */}
-              <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100 flex items-center justify-between text-xs">
-                <span className="text-blue-900 font-bold text-[11px] flex items-center gap-1">
-                  💡 จัดเรียงลำดับ: คลิกปุ่ม ▲ (เลื่อนไปทางซ้ายของตาราง) หรือ ▼ (เลื่อนไปทางขวาของตาราง)
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                {inspectorList.map((ins, idx) => (
-                  <div
-                    key={ins.name}
-                    className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-blue-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 shrink-0">
-                        <label className="text-[10px] text-slate-500 font-bold">ลำดับ:</label>
-                        <select
-                          value={idx + 1}
-                          onChange={(e) => handleSetInspectorOrder(idx, parseInt(e.target.value))}
-                          className="text-xs font-black bg-white border border-blue-300 text-blue-700 rounded-lg px-2 py-1 shadow-2xs outline-none cursor-pointer hover:border-blue-500"
-                          title="เลือกลำดับแสดงผลบนตาราง"
-                        >
-                          {inspectorList.map((_, orderIdx) => (
-                            <option key={orderIdx + 1} value={orderIdx + 1}>
-                              {orderIdx + 1}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="flex items-center gap-0.5 ml-0.5">
-                          <button
-                            type="button"
-                            disabled={idx === 0}
-                            onClick={() => handleMoveInspector(idx, 'up')}
-                            title="เลื่อนขึ้น / ซ้าย"
-                            className="w-6 h-6 rounded-md bg-white hover:bg-blue-100 disabled:opacity-25 border border-slate-300 text-slate-700 font-black text-xs flex items-center justify-center transition-colors"
-                          >
-                            ▲
-                          </button>
-                          <button
-                            type="button"
-                            disabled={idx === inspectorList.length - 1}
-                            onClick={() => handleMoveInspector(idx, 'down')}
-                            title="เลื่อนลง / ขวา"
-                            className="w-6 h-6 rounded-md bg-white hover:bg-blue-100 disabled:opacity-25 border border-slate-300 text-slate-700 font-black text-xs flex items-center justify-center transition-colors"
-                          >
-                            ▼
-                          </button>
-                        </div>
-                      </div>
-
-                      <span className="font-bold text-xs text-slate-800 whitespace-nowrap">{ins.name}</span>
-                    </div>
-
-                    <div className="flex-1 sm:max-w-xs">
-                      <input
-                        type="text"
-                        value={ins.product_lines || ''}
-                        onChange={(e) => handleUpdateInspectorLines(idx, e.target.value)}
-                        placeholder="เช่น ES1, 3300, 5500"
-                        className="w-full text-[11px] p-1.5 rounded-lg border border-slate-300 font-medium bg-white"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveInspector(ins.name)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 self-end sm:self-center"
-                    >
-                      <Icons.Trash />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Add Inspector */}
-              <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-200 space-y-2.5">
-                <span className="text-xs font-bold text-blue-900 block">
-                  + เพิ่มผู้ตรวจคนใหม่เข้าสู่ระบบ:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="ชื่อผู้ตรวจ (เช่น สมศักดิ์)"
-                    value={newInspectorName}
-                    onChange={(e) => setNewInspectorName(e.target.value)}
-                    className="text-xs p-2 rounded-xl border border-blue-200 bg-white font-bold"
-                  />
-                  <input
-                    type="text"
-                    placeholder="โมเดลสินค้า (เช่น ES1, 3300, 5500)"
-                    value={newInspectorLines}
-                    onChange={(e) => setNewInspectorLines(e.target.value)}
-                    className="text-xs p-2 rounded-xl border border-blue-200 bg-white font-medium"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddInspector}
-                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <Icons.Plus /> เพิ่มผู้ตรวจ
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 7: USERS & ROLES MANAGEMENT */}
-          {activeTab === 'users' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">
-                    จัดการรายชื่อผู้ใช้และสิทธิ์การเข้าถึง ({userList.length} บัญชี)
-                  </h4>
-                  <span className="text-[11px] text-slate-500">
-                    กำหนดระดับสิทธิ์: Admin (ผู้ดูแล), Inspector (ผู้ตรวจ), User (ผู้จอง), Viewer (ดูอย่างเดียว)
-                  </span>
-                </div>
-              </div>
-
-              {/* List */}
-              <div className="space-y-2">
-                {userList.map((u) => (
-                  <div
-                    key={u.username}
-                    className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-2"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
-                        {u.role === 'admin' ? '👑' : u.role === 'inspector' ? '🔍' : u.role === 'viewer' ? '👁️' : '👤'}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="font-bold text-xs text-slate-800 block truncate">
-                          {u.fullname || u.username} ({u.username})
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          Role: {u.role.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {u.username !== 'jirapong' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveUser(u.username)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                      >
-                        <Icons.Trash />
-                      </button>
+                  <div className="flex items-center gap-2">
+                    {isGdriveLocked ? (
+                      <span className="text-[10px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-bold flex items-center gap-1 border border-red-200">
+                        🔒 ป้องกันการแก้ไข (Locked)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold flex items-center gap-1 border border-emerald-200">
+                        🔓 ปลดล็อกแล้ว (Editable)
+                      </span>
                     )}
                   </div>
-                ))}
+                </div>
+                <p className="text-[11px] text-emerald-900 leading-relaxed">
+                  ระบุ Google Drive Folder ID เพื่อจัดเก็บไฟล์เอกสารแนบ PDF (Open Item List, Floor Plan, Pre-check) และรูปภาพหน้างานทั้งหมดอย่างปลอดภัย
+                  ต้องใส่รหัสผ่านผู้ดูแลระบบก่อนดูค่าและแก้ไขเพื่อความปลอดภัยสูงสุด
+                </p>
+
+                <div className="pt-2 flex flex-wrap gap-2 items-center">
+                  {isGdriveLocked ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUnlockTarget('gdrive');
+                        setUnlockPasswordInput('');
+                        setUnlockError('');
+                      }}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Icons.Lock size={14} /> ปลดล็อกด้วยรหัสผ่านแอดมินเพื่อแก้ไข
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsGdriveLocked(true)}
+                      className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Icons.Check size={14} /> ล็อกการตั้งค่าความปลอดภัยทันที
+                    </button>
+                  )}
+
+                  {formData.gdriveRootFolderId && !isGdriveLocked && (
+                    <a
+                      href={`https://drive.google.com/drive/folders/${formData.gdriveRootFolderId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs active:scale-95 transition-all"
+                    >
+                      <Icons.ExternalLink size={14} /> เปิดโฟลเดอร์ใน Google Drive
+                    </a>
+                  )}
+                </div>
               </div>
 
-              {/* Add User */}
-              <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-200 space-y-2.5">
-                <span className="text-xs font-bold text-indigo-900 block">
-                  + สร้างบัญชีผู้ใช้งานใหม่:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                    {isGdriveLocked && <span>🔒</span>} Google Drive Folder ID (สำหรับจัดเก็บ PDF และรูปภาพ):
+                  </label>
                   <input
-                    type="text"
-                    placeholder="Username"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    className="text-xs p-2 rounded-xl border border-indigo-200 bg-white font-bold"
+                    type={isGdriveLocked ? "password" : "text"}
+                    disabled={isGdriveLocked}
+                    readOnly={isGdriveLocked}
+                    value={isGdriveLocked ? '••••••••••••••••••••••••••••••••' : (formData.gdriveRootFolderId || '')}
+                    onChange={(e) => setFormData({ ...formData, gdriveRootFolderId: e.target.value.trim() })}
+                    placeholder="เช่น 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OIv524"
+                    className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                      isGdriveLocked
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
+                        : 'bg-white text-slate-800 font-bold border-emerald-500 focus:ring-2 focus:ring-emerald-500'
+                    }`}
                   />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    💡 คัดลอก Folder ID จาก URL ใน Google Drive เช่น drive.google.com/drive/folders/<b>[FOLDER_ID]</b>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                    {isGdriveLocked && <span>🔒</span>} Google Drive Web URL สำรอง:
+                  </label>
                   <input
-                    type="text"
-                    placeholder="ชื่อ-นามสกุล"
-                    value={newFullName}
-                    onChange={(e) => setNewFullName(e.target.value)}
-                    className="text-xs p-2 rounded-xl border border-indigo-200 bg-white"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="text-xs p-2 rounded-xl border border-indigo-200 bg-white"
+                    type={isGdriveLocked ? "password" : "text"}
+                    disabled={isGdriveLocked}
+                    readOnly={isGdriveLocked}
+                    value={isGdriveLocked ? '••••••••••••••••••••••••••••••••••••••••' : (formData.gdriveRootFolderUrl || '')}
+                    onChange={(e) => setFormData({ ...formData, gdriveRootFolderUrl: e.target.value })}
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                      isGdriveLocked
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
+                        : 'bg-white text-slate-800 font-bold border-emerald-500 focus:ring-2 focus:ring-emerald-500'
+                    }`}
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-bold text-indigo-900">ระดับสิทธิ์:</label>
-                  <select
-                    value={newRole}
-                    onChange={(e: any) => setNewRole(e.target.value)}
-                    className="text-xs p-1.5 rounded-lg border border-indigo-200 bg-white font-bold"
-                  >
-                    <option value="admin">👑 Admin (เต็มรูปแบบ)</option>
-                    <option value="inspector">🔍 Inspector (ผู้ตรวจงาน)</option>
-                    <option value="user">👤 User (วิศวกร/ผู้จองคิว)</option>
-                    <option value="viewer">👁️ Viewer (ดูอย่างเดียว)</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleAddUser}
-                    className="ml-auto px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs"
-                  >
-                    + เพิ่มบัญชี
-                  </button>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                    {isGdriveLocked && <span>🔒</span>} โฟลเดอร์เฉพาะสำหรับจัดเก็บ OIL Reports & Checklists (Oil Folder ID):
+                  </label>
+                  <input
+                    type={isGdriveLocked ? "password" : "text"}
+                    disabled={isGdriveLocked}
+                    readOnly={isGdriveLocked}
+                    value={isGdriveLocked ? '••••••••••••••••••••••••••••••••' : (formData.gdriveOilFolderId || '')}
+                    onChange={(e) => setFormData({ ...formData, gdriveOilFolderId: e.target.value.trim() })}
+                    placeholder="เช่น 1_SAIS_OIL_TRACKING_DOCS_ROOT (เว้นว่างเพื่อใช้ Folder หลัก)"
+                    className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                      isGdriveLocked
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
+                        : 'bg-white text-slate-800 font-bold border-indigo-500 focus:ring-2 focus:ring-indigo-500'
+                    }`}
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    📁 ระบุ Folder ID สำหรับแยกจัดเก็บรายงาน Open Item List (OIL) PDF และรายงานผลตรวจสอบลิฟต์โดยเฉพาะ
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                    <input
+                      type="checkbox"
+                      disabled={isGdriveLocked}
+                      checked={formData.gdriveAutoOrganizeByProject ?? true}
+                      onChange={(e) =>
+                        setFormData({ ...formData, gdriveAutoOrganizeByProject: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-emerald-600"
+                    />
+                    <span>สร้างโฟลเดอร์ย่อยแยกตามชื่องาน / รหัสงาน (Auto-categorize by Project)</span>
+                  </label>
+                </div>
+
+                <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200 text-emerald-900 space-y-1">
+                  <span className="font-bold text-[11px] flex items-center gap-1">
+                    <Icons.CheckCircle size={13} className="text-emerald-600" />
+                    ประโยชน์ของการเชื่อมต่อ Google Drive:
+                  </span>
+                  <div className="text-[10px] text-emerald-800 space-y-0.5 pl-3">
+                    <div>• ไฟล์ PDF Open Item List, Floor Plan, Pre-check และรูปถ่ายหน้างานจะถูกส่งเข้าโฟลเดอร์นี้โดยตรง</div>
+                    <div>• วิศวกรและผู้ตรวจสามารถเปิดดูเอกสารย้อนหลังได้จากตารางคิวตรวจและระบบ Tracking OIL ตลอด 24 ชม.</div>
+                    <div>• ป้องกันข้อมูลสูญหายและประหยัดพื้นที่เซิร์ฟเวอร์</div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Centered Admin Notice */}
+          <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-blue-900 flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5 font-medium">
+              💡 <span>จัดการรายชื่อผู้ตรวจ, สิทธิ์ และบัญชีผู้ใช้ได้ที่ <b>แผงควบคุมระบบ (Admin Panel)</b> บนแถบเมนูหลัก</span>
+            </span>
+          </div>
         </div>
 
         {/* Footer Actions */}
