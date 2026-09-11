@@ -118,7 +118,7 @@ export const OilUploadModal: React.FC<OilUploadModalProps> = ({
       const targetExisting =
         existingRecord ||
         allExistingRecords.find(
-          (r) => r.equipment_no.trim() === finalEquipmentNo.trim() && r.equipment_no.trim() !== ''
+          (r) => (r.equipment_no || '').trim() === (finalEquipmentNo || '').trim() && (r.equipment_no || '').trim() !== ''
         );
 
       let finalItems = merged.items;

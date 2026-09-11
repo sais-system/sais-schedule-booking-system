@@ -363,7 +363,7 @@ export const autoSyncBookingToOilTracking = async (
   const exists = existingOilRecords.find(
     (r) =>
       (r.booking_id && r.booking_id === booking.id) ||
-      (r.equipment_no.trim() === eqNo && r.inspection_date === inspDate)
+      ((r.equipment_no || '').trim() === eqNo && r.inspection_date === inspDate)
   );
 
   if (exists) return null;
@@ -413,7 +413,7 @@ export const autoSyncAllBookingsToOilTracking = async (
     const exists = currentRecords.find(
       (r) =>
         (r.booking_id && r.booking_id === b.id) ||
-        (r.equipment_no.trim() === eqNo && r.inspection_date === inspDate)
+        ((r.equipment_no || '').trim() === eqNo && r.inspection_date === inspDate)
     );
 
     if (!exists) {

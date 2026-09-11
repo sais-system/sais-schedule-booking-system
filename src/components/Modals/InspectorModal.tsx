@@ -1,21 +1,8 @@
 import React, { useState } from 'react';
-import { Inspector } from '../../types';
+import { Inspector, STANDARD_PRODUCT_LINES } from '../../types';
 import { Icons } from '../Icons';
 
-const ALL_PRODUCT_LINES = [
-  'ES1',
-  '3300',
-  '5500',
-  'ES5/ES5.1',
-  'S-villas',
-  'ES2',
-  'ES3',
-  'MOR-R',
-  'MOD-T',
-  'S7R4',
-  'Flex7',
-  'ESC/MW',
-];
+const ALL_PRODUCT_LINES = STANDARD_PRODUCT_LINES;
 
 interface InspectorModalProps {
   inspector?: Inspector | null;

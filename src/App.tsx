@@ -9,6 +9,7 @@ import {
   SystemLog,
   DayInfo,
   OilTrackingRecord,
+  STANDARD_PRODUCT_LINES,
 } from './types';
 import {
   getThaiTime,
@@ -203,8 +204,17 @@ export default function App() {
   const isAdmin = currentUser?.role === 'admin';
 
   // Handle live custom text save for Admin
-  const handleSaveCustomText = (id: string, newText: string) => {
-    const updatedTexts = { ...(settings.customTexts || {}), [id]: newText };
+  const handleSaveCustomText = (idOrKey: string, newText: string) => {
+    const updatedTexts = { ...(settings.customTexts || {}), [idOrKey]: newText };
+    const updated = { ...settings, customTexts: updatedTexts };
+    setSettings(updated);
+    saveSettingsToStorage(updated);
+    firestoreSaveSettings(updated);
+  };
+
+  const handleResetCustomText = (idOrKey: string) => {
+    const updatedTexts = { ...(settings.customTexts || {}) };
+    delete updatedTexts[idOrKey];
     const updated = { ...settings, customTexts: updatedTexts };
     setSettings(updated);
     saveSettingsToStorage(updated);
@@ -367,6 +377,27 @@ export default function App() {
     setPeriod(now.getDate() <= 15 ? 0 : 1);
     if (currentView !== 'calendar') setCurrentView('calendar');
   };
+
+  // Comprehensive list of Product Lines from standard certificate models, inspectors' certificates, and existing bookings
+  const calendarProductLines = useMemo(() => {
+    const linesSet = new Set<string>(STANDARD_PRODUCT_LINES);
+    inspectors.forEach((ins) => {
+      if (ins.product_lines) {
+        ins.product_lines.split(',').forEach((pl) => {
+          const trimmed = pl.trim();
+          if (trimmed && trimmed !== 'All Products' && trimmed !== 'All') {
+            linesSet.add(trimmed);
+          }
+        });
+      }
+    });
+    bookings.forEach((b) => {
+      if (b.product_line && b.product_line !== 'อื่นๆโปรดระบุ' && b.product_line !== 'All') {
+        linesSet.add(b.product_line.trim());
+      }
+    });
+    return Array.from(linesSet);
+  }, [inspectors, bookings]);
 
   // Filtered bookings for Calendar view
   const calendarDisplayBookings = useMemo(() => {
@@ -857,8 +888,10 @@ export default function App() {
   };
 
   const handleResetPassword = (name: string, phone: string, newPass: string) => {
+    const safeName = (name || '').trim();
+    const safePhone = (phone || '').trim();
     const idx = users.findIndex(
-      (u) => u.full_name.trim() === name.trim() && u.phone?.trim() === phone.trim()
+      (u) => (u.full_name || '').trim() === safeName && (u.phone || '').trim() === safePhone
     );
     if (idx !== -1) {
       const updated = [...users];
@@ -883,11 +916,32 @@ export default function App() {
     });
   };
 
+  const liveEditContextValue = {
+    customTexts: settings.customTexts || {},
+    isAdmin,
+    isLiveEdit: !!settings.isLiveEdit,
+    onSaveText: handleSaveCustomText,
+    onResetText: handleResetCustomText,
+    onToggleLiveEdit: () => {
+      const nextEdit = !settings.isLiveEdit;
+      const nextSettings = { ...settings, isLiveEdit: nextEdit };
+      setSettings(nextSettings);
+      saveSettingsToStorage(nextSettings);
+      firestoreSaveSettings(nextSettings);
+      setSuccessModal(
+        nextEdit
+          ? 'เปิดโหมดปากกาแก้ไขข้อความสดแล้ว (คลิกที่ข้อความใดๆ บนหน้าเว็บเพื่อแก้ไข)'
+          : 'ปิดโหมดปากกาแก้ไขข้อความแล้ว'
+      );
+    },
+    onOpenUniversalModal: () => setShowUniversalTextModal(true),
+  };
+
   // Requirement 4: Enforce Authentication Gate
   // Website and calendar can only be viewed, edited, modified, or deleted when logged in
   if (!currentUser) {
     return (
-      <>
+      <LiveEditProvider value={liveEditContextValue}>
         <AuthModal
           isGate={true}
           users={users}
@@ -924,19 +978,12 @@ export default function App() {
             </div>
           </div>
         )}
-      </>
+      </LiveEditProvider>
     );
   }
 
   return (
-    <LiveEditProvider
-      value={{
-        customTexts: settings.customTexts,
-        isAdmin,
-        isLiveEdit: settings.isLiveEdit,
-        onSaveText: handleSaveCustomText,
-      }}
-    >
+    <LiveEditProvider value={liveEditContextValue}>
       <div
         className="app-container"
         style={
@@ -1047,10 +1094,10 @@ export default function App() {
             type="button"
             onClick={() => setTutorialOpen(true)}
             className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold shadow-2xs flex items-center gap-1 transition-all active:scale-95 border border-amber-400/40 shrink-0"
-            title={t.tutorialButton}
+            title={t.tutorialButton || t.tutorialBtn || 'จำลองสอนใช้งาน'}
           >
             <Icons.GraduationCap size={13} />
-            <span className="hidden lg:inline">{t.tutorialButton}</span>
+            <span className="hidden lg:inline">{t.tutorialButton || t.tutorialBtn || 'จำลองสอนใช้งาน'}</span>
           </button>
 
           {/* Live Edit Pen Toggle Button for Admins (Requirement 4) */}
@@ -1089,7 +1136,7 @@ export default function App() {
             className={`p-1.5 rounded-lg transition-colors shrink-0 ${
               showSettings ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/10 hover:bg-white/20 text-white'
             }`}
-            title={t.systemSettings}
+            title={t.systemSettings || t.settingsBtn || 'การตั้งค่า & คลาวด์'}
           >
             <Icons.Settings size={15} />
           </button>
@@ -1105,7 +1152,7 @@ export default function App() {
                 <div className="text-xs font-bold border-b border-slate-200 pb-2 mb-3 text-slate-800 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Icons.Settings size={15} className="text-slate-700" />
-                    <EditableText id="settings_title" defaultText={t.systemSettings} />
+                    <EditableText id="settings_title" defaultText={t.systemSettings || t.settingsBtn || 'การตั้งค่า & คลาวด์'} />
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded">
@@ -1432,12 +1479,12 @@ export default function App() {
                     onChange={(e) => setCalFilterProduct(e.target.value)}
                     className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-bold text-slate-700 outline-none focus:border-blue-500 cursor-pointer shadow-2xs hover:border-slate-400 transition-colors"
                   >
-                    <option value="All">ทุกโมเดล (All)</option>
-                    <option value="ES1">ES1</option>
-                    <option value="3300">3300</option>
-                    <option value="5500">5500</option>
-                    <option value="S-villas">S-villas</option>
-                    <option value="ES2">ES2</option>
+                    <option value="All">All</option>
+                    {calendarProductLines.map((pl) => (
+                      <option key={pl} value={pl}>
+                        {pl}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

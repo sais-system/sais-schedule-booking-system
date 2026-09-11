@@ -21,6 +21,21 @@ export interface Inspector {
   order?: number;
 }
 
+export const STANDARD_PRODUCT_LINES: string[] = [
+  'ES1',
+  '3300',
+  '5500',
+  'ES5/ES5.1',
+  'S-villas',
+  'ES2',
+  'ES3',
+  'MOR-R',
+  'MOD-T',
+  'S7R4',
+  'Flex7',
+  'ESC/MW',
+];
+
 export interface Booking {
   id: string;
   date: string; // YYYY-MM-DD

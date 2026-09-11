@@ -17,7 +17,9 @@ export const translations = {
     // Top Bar Buttons
     newBooking: 'จองคิวงานใหม่',
     tutorialBtn: 'จำลองสอนใช้งาน',
+    tutorialButton: 'จำลองสอนใช้งาน',
     settingsBtn: 'การตั้งค่า & คลาวด์',
+    systemSettings: 'การตั้งค่า & คลาวด์',
     login: 'เข้าสู่ระบบ',
     logout: 'ออกจากระบบ',
     userRole: 'สิทธิ์ผู้ใช้',
@@ -138,7 +140,9 @@ export const translations = {
     // Top Bar Buttons
     newBooking: 'Book New Job',
     tutorialBtn: 'Tutorial & Sim',
+    tutorialButton: 'Tutorial & Sim',
     settingsBtn: 'Settings & Cloud',
+    systemSettings: 'Settings & Cloud',
     login: 'Login',
     logout: 'Logout',
     userRole: 'Role',

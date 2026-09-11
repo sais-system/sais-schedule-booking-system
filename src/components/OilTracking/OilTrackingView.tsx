@@ -261,14 +261,16 @@ export const OilTrackingView: React.FC<OilTrackingViewProps> = ({
     }
 
     if (selectedInspector !== 'ALL') {
-      list = list.filter((r) => r.inspector_name?.trim() === selectedInspector.trim());
+      const insTrim = (selectedInspector || '').trim();
+      list = list.filter((r) => (r.inspector_name || '').trim() === insTrim);
     }
 
     if (selectedSupervisor !== 'ALL') {
-      list = list.filter((r) => (r.supervisor?.trim() || '') === selectedSupervisor.trim());
+      const supTrim = (selectedSupervisor || '').trim();
+      list = list.filter((r) => ((r.supervisor || '').trim()) === supTrim);
     }
 
-    if (searchQuery.trim()) {
+    if (searchQuery && searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((r) => {
         const matchEq = r.equipment_no?.toLowerCase().includes(q);
@@ -386,10 +388,10 @@ export const OilTrackingView: React.FC<OilTrackingViewProps> = ({
   const availableInspectors = useMemo(() => {
     const set = new Set<string>();
     oilRecords.forEach((r) => {
-      if (r.inspector_name && r.inspector_name.trim()) set.add(r.inspector_name.trim());
+      if (r.inspector_name && typeof r.inspector_name === 'string' && r.inspector_name.trim()) set.add(r.inspector_name.trim());
     });
     inspectors.forEach((ins) => {
-      if (ins.name && ins.name.trim()) set.add(ins.name.trim());
+      if (ins.name && typeof ins.name === 'string' && ins.name.trim()) set.add(ins.name.trim());
     });
     return Array.from(set).sort();
   }, [oilRecords, inspectors]);
@@ -398,7 +400,7 @@ export const OilTrackingView: React.FC<OilTrackingViewProps> = ({
   const availableSupervisors = useMemo(() => {
     const set = new Set<string>();
     oilRecords.forEach((r) => {
-      if (r.supervisor && r.supervisor.trim()) set.add(r.supervisor.trim());
+      if (r.supervisor && typeof r.supervisor === 'string' && r.supervisor.trim()) set.add(r.supervisor.trim());
     });
     return Array.from(set).sort();
   }, [oilRecords]);
