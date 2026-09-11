@@ -58,13 +58,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [productLine, setProductLine] = useState(data?.product_line || 'ES1');
   const [customProductLine, setCustomProductLine] = useState('');
   const [jobType, setJobType] = useState(data?.job_type || 'New');
+  const standardAreas = ['กรุงเทพและปริมณฑล', 'เชียงใหม่', 'ภูเก็ต'];
   const [area, setArea] = useState(
-    data?.area?.startsWith('ต่างจังหวัด') || (data?.area && data.area !== 'กรุงเทพและปริมณฑล')
+    data?.area && !standardAreas.includes(data.area)
       ? 'other'
       : data?.area || 'กรุงเทพและปริมณฑล'
   );
   const [customArea, setCustomArea] = useState(
-    data?.area && data.area !== 'กรุงเทพและปริมณฑล' ? data.area : ''
+    data?.area && !standardAreas.includes(data.area) ? data.area : ''
   );
   const [equipmentNo, setEquipmentNo] = useState(data?.equipment_no || '');
   const [unitNo, setUnitNo] = useState(data?.unit_no || '');
@@ -125,13 +126,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [showHelp, setShowHelp] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerTargetDoc, setScannerTargetDoc] = useState<DocumentTypeKey>('layout');
-  const [inspectionResult, setInspectionResult] = useState(data?.inspection_result || data?.sais_status || '');
 
   // Check completeness of required documents
+  const isReinspection =
+    jobType.toLowerCase().startsWith('re-ins') ||
+    jobType.toLowerCase().includes('re-inspection') ||
+    jobType.toLowerCase().includes('re-ins');
+
   const hasLayout = Boolean(docUrls.layout);
   const hasWiring = Boolean(docUrls.wiring);
   const hasPrecheck = Boolean(docUrls.precheck);
-  const hasAllRequiredDocs = hasLayout && hasWiring && hasPrecheck;
+  const hasAllRequiredDocs = isReinspection || (hasLayout && hasWiring && hasPrecheck);
 
   const missingDocs: string[] = [];
   if (!hasLayout) missingDocs.push('Layout');
@@ -285,8 +290,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       layout_doc: docUrls.layout ? 'true' : 'false',
       wiring_doc: docUrls.wiring ? 'true' : 'false',
       precheck_doc: docUrls.precheck ? 'true' : 'false',
-      inspection_result: inspectionResult || undefined,
-      sais_status: inspectionResult || data?.sais_status || undefined,
+      inspection_result: data?.inspection_result || undefined,
+      sais_status: data?.sais_status || undefined,
       status: 'active',
     };
 
@@ -304,7 +309,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   return (
     <>
-      <div className="modal-card w-full max-w-[480px] animate-pop flex flex-col max-h-[90vh] bg-white rounded-3xl overflow-hidden shadow-2xl relative">
+      <div className="modal-card w-full max-w-[480px] animate-pop flex flex-col max-h-[92dvh] my-auto bg-white rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-full z-40 transition-colors"
@@ -355,66 +360,68 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         ) : (
           <div className="p-4 sm:p-5 overflow-y-auto flex-1 custom-scrollbar -webkit-overflow-scrolling-touch pb-10">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Mandatory Documents Checklist Warning Banner */}
-              <div
-                className={`p-3.5 rounded-2xl border transition-all ${
-                  hasAllRequiredDocs
-                    ? 'bg-emerald-50/70 border-emerald-300 text-emerald-900'
-                    : 'bg-amber-50/80 border-amber-300 text-amber-950'
-                }`}
-              >
-                <div className="flex items-center justify-between font-bold text-xs mb-1.5">
-                  <span className="flex items-center gap-1.5">
-                    {hasAllRequiredDocs ? <Icons.Check /> : <Icons.Alert />}
-                    เงื่อนไขเอกสารบังคับ (3 รายการ)
-                  </span>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      hasAllRequiredDocs
-                        ? 'bg-emerald-200 text-emerald-800'
-                        : 'bg-amber-200 text-amber-800'
-                    }`}
-                  >
-                    {hasAllRequiredDocs ? 'เอกสารครบแล้ว 3/3' : `ยังไม่ครบ (ขาด ${missingDocs.length})`}
-                  </span>
-                </div>
+              {/* Mandatory Documents Checklist Warning Banner (Hidden for Re-inspection) */}
+              {!isReinspection && (
+                <div
+                  className={`p-3.5 rounded-2xl border transition-all ${
+                    hasAllRequiredDocs
+                      ? 'bg-emerald-50/70 border-emerald-300 text-emerald-900'
+                      : 'bg-amber-50/80 border-amber-300 text-amber-950'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold text-xs mb-1.5">
+                    <span className="flex items-center gap-1.5">
+                      {hasAllRequiredDocs ? <Icons.Check /> : <Icons.Alert />}
+                      เงื่อนไขเอกสารบังคับ (3 รายการ)
+                    </span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        hasAllRequiredDocs
+                          ? 'bg-emerald-200 text-emerald-800'
+                          : 'bg-amber-200 text-amber-800'
+                      }`}
+                    >
+                      {hasAllRequiredDocs ? 'เอกสารครบแล้ว 3/3' : `ยังไม่ครบ (ขาด ${missingDocs.length})`}
+                    </span>
+                  </div>
 
-                <div className="grid grid-cols-3 gap-1.5 text-[11px] font-bold">
-                  <div
-                    className={`p-1.5 rounded-lg border text-center ${
-                      hasLayout
-                        ? 'bg-emerald-100/70 border-emerald-300 text-emerald-800'
-                        : 'bg-white border-amber-200 text-amber-700'
-                    }`}
-                  >
-                    Layout: {hasLayout ? '✅ ครบ' : '❌ ขาด'}
+                  <div className="grid grid-cols-3 gap-1.5 text-[11px] font-bold">
+                    <div
+                      className={`p-1.5 rounded-lg border text-center ${
+                        hasLayout
+                          ? 'bg-emerald-100/70 border-emerald-300 text-emerald-800'
+                          : 'bg-white border-amber-200 text-amber-700'
+                      }`}
+                    >
+                      Layout: {hasLayout ? '✅ ครบ' : '❌ ขาด'}
+                    </div>
+                    <div
+                      className={`p-1.5 rounded-lg border text-center ${
+                        hasWiring
+                          ? 'bg-emerald-100/70 border-emerald-300 text-emerald-800'
+                          : 'bg-white border-amber-200 text-amber-700'
+                      }`}
+                    >
+                      Wiring: {hasWiring ? '✅ ครบ' : '❌ ขาด'}
+                    </div>
+                    <div
+                      className={`p-1.5 rounded-lg border text-center ${
+                        hasPrecheck
+                          ? 'bg-emerald-100/70 border-emerald-300 text-emerald-800'
+                          : 'bg-white border-amber-200 text-amber-700'
+                      }`}
+                    >
+                      Pre-check: {hasPrecheck ? '✅ ครบ' : '❌ ขาด'}
+                    </div>
                   </div>
-                  <div
-                    className={`p-1.5 rounded-lg border text-center ${
-                      hasWiring
-                        ? 'bg-emerald-100/70 border-emerald-300 text-emerald-800'
-                        : 'bg-white border-amber-200 text-amber-700'
-                    }`}
-                  >
-                    Wiring: {hasWiring ? '✅ ครบ' : '❌ ขาด'}
-                  </div>
-                  <div
-                    className={`p-1.5 rounded-lg border text-center ${
-                      hasPrecheck
-                        ? 'bg-emerald-100/70 border-emerald-300 text-emerald-800'
-                        : 'bg-white border-amber-200 text-amber-700'
-                    }`}
-                  >
-                    Pre-check: {hasPrecheck ? '✅ ครบ' : '❌ ขาด'}
-                  </div>
-                </div>
 
-                {!hasAllRequiredDocs && (
-                  <p className="text-[10px] text-amber-700 mt-1.5 font-medium">
-                    * ต้องอัปโหลดเอกสารทั้ง 3 รายการข้างต้นให้ครบ จึงจะสามารถกดบันทึกการจองได้
-                  </p>
-                )}
-              </div>
+                  {!hasAllRequiredDocs && (
+                    <p className="text-[10px] text-amber-700 mt-1.5 font-medium">
+                      * ต้องอัปโหลดเอกสารทั้ง 3 รายการข้างต้นให้ครบ จึงจะสามารถกดบันทึกการจองได้
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Inspector and Date Selector */}
               {isAdmin ? (
@@ -547,7 +554,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-700 outline-none focus:border-blue-400"
                 >
                   <option value="กรุงเทพและปริมณฑล">กรุงเทพและปริมณฑล</option>
-                  <option value="other">ต่างจังหวัด (โปรดระบุ)</option>
+                  <option value="เชียงใหม่">เชียงใหม่</option>
+                  <option value="ภูเก็ต">ภูเก็ต</option>
+                  <option value="other">จังหวัดอื่นๆ (โปรดระบุ)</option>
                 </select>
               </div>
 
@@ -715,199 +724,172 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
               </div>
 
-              {/* Document Uploads with Camera Scanner (Layout, Wiring, Precheck) */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Icons.Upload /> อัปโหลดเอกสารบังคับ (ต้องครบ 3 อย่าง){' '}
-                    <span className="text-red-500">*</span>
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => openScanner('layout')}
-                    className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1 rounded-lg shadow-2xs flex items-center gap-1"
-                  >
-                    <Icons.Camera size={13} /> สแกนเอกสาร
-                  </button>
-                </div>
-
-                {(['layout', 'wiring', 'precheck'] as const).map((doc) => {
-                  const currentUrl = docUrls[doc];
-                  const docLabels: Record<string, string> = {
-                    layout: 'Layout Document',
-                    wiring: 'Wiring Document',
-                    precheck: 'Pre-check Document',
-                  };
-
-                  return (
-                    <div
-                      key={doc}
-                      className={`p-3 rounded-xl border transition-all ${
-                        currentUrl
-                          ? 'bg-emerald-50/60 border-emerald-300 shadow-2xs'
-                          : 'bg-white border-slate-200'
-                      }`}
+              {/* Document Uploads with Camera Scanner (Hidden for Re-inspection) */}
+              {!isReinspection && (
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Icons.Upload /> อัปโหลดเอกสารบังคับ (ต้องครบ 3 อย่าง){' '}
+                      <span className="text-red-500">*</span>
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => openScanner('layout')}
+                      className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1 rounded-lg shadow-2xs flex items-center gap-1"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-slate-800">
-                              {docLabels[doc]} <span className="text-red-500">*</span>
-                            </span>
-                            {currentUrl && (
-                              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
-                                แนบแล้ว
+                      <Icons.Camera size={13} /> สแกนเอกสาร
+                    </button>
+                  </div>
+
+                  {(['layout', 'wiring', 'precheck'] as const).map((doc) => {
+                    const currentUrl = docUrls[doc];
+                    const docLabels: Record<string, string> = {
+                      layout: 'Layout Document',
+                      wiring: 'Wiring Document',
+                      precheck: 'Pre-check Document',
+                    };
+
+                    return (
+                      <div
+                        key={doc}
+                        className={`p-3 rounded-xl border transition-all ${
+                          currentUrl
+                            ? 'bg-emerald-50/60 border-emerald-300 shadow-2xs'
+                            : 'bg-white border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-slate-800">
+                                {docLabels[doc]} <span className="text-red-500">*</span>
+                              </span>
+                              {currentUrl && (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                                  แนบแล้ว
+                                </span>
+                              )}
+                            </div>
+                            {currentUrl ? (
+                              <div className="mt-0.5">
+                                <span className="text-[10px] text-emerald-700 font-bold block truncate" title={docNames[doc] || 'ไฟล์แนบ'}>
+                                  📄 {docNames[doc] || 'เอกสารถูกอัปโหลดแล้ว'}
+                                </span>
+                                <span className="text-[9px] text-slate-500 font-medium block">
+                                  (สถานะ: รอตรวจสอบ)
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-amber-600 font-bold block mt-0.5">
+                                ❌ ยังไม่ได้แนบไฟล์ (รองรับ PDF, JPG, PNG)
                               </span>
                             )}
                           </div>
-                          {currentUrl ? (
-                            <div className="mt-0.5">
-                              <span className="text-[10px] text-emerald-700 font-bold block truncate" title={docNames[doc] || 'ไฟล์แนบ'}>
-                                📄 {docNames[doc] || 'เอกสารถูกอัปโหลดแล้ว'}
-                              </span>
-                              <span className="text-[9px] text-slate-500 font-medium block">
-                                (สถานะ: รอตรวจสอบ)
-                              </span>
+
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {currentUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => onViewFile(currentUrl)}
+                                  className="text-[10px] text-blue-600 bg-white px-2.5 py-1.5 rounded-lg border border-blue-200 font-bold hover:bg-blue-50 shadow-2xs"
+                                >
+                                  ดูไฟล์
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => openScanner(doc)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-2xs"
+                                title="ถ่ายรูป / สแกนเอกสาร"
+                              >
+                                <Icons.Camera size={12} /> ถ่ายรูป
+                              </button>
+
+                              <label className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-bold cursor-pointer transition-colors shadow-2xs flex items-center gap-1">
+                                <Icons.Upload size={12} /> {uploading[doc] ? 'รอ...' : 'แนบไฟล์'}
+                                <input
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, doc)}
+                                />
+                              </label>
                             </div>
-                          ) : (
-                            <span className="text-[10px] text-amber-600 font-bold block mt-0.5">
-                              ❌ ยังไม่ได้แนบไฟล์ (รองรับ PDF, JPG, PNG)
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Site Conditions Photos (Hidden for Re-inspection) */}
+              {!isReinspection && (
+                <div className="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100 space-y-3">
+                  <div className="flex justify-between items-center border-b border-indigo-100 pb-2">
+                    <h4 className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                      <Icons.Image /> รูปภาพสภาพหน้างาน (Site Conditions)
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => openScanner('site_cond_1')}
+                      className="text-[10px] bg-indigo-600 text-white px-2.5 py-1 rounded-lg font-bold flex items-center gap-1"
+                    >
+                      <Icons.Camera size={12} /> ถ่ายรูป
+                    </button>
+                  </div>
+
+                  {condLabels.map((cond) => {
+                    const currentCondUrls = docUrls[cond.id];
+                    const count = currentCondUrls ? currentCondUrls.split(',').filter(Boolean).length : 0;
+                    return (
+                      <div
+                        key={cond.id}
+                        className="flex items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-indigo-100 shadow-sm"
+                      >
+                        <div className="flex-1 min-w-0 pr-2">
+                          <span className="text-[11px] font-bold text-slate-700 block truncate">
+                            {cond.label}
+                          </span>
+                          {count > 0 && (
+                            <span className="text-[10px] text-indigo-600 font-bold block">
+                              {count} รูปภาพ
                             </span>
                           )}
                         </div>
-
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {currentUrl && (
-                              <button
-                                type="button"
-                                onClick={() => onViewFile(currentUrl)}
-                                className="text-[10px] text-blue-600 bg-white px-2.5 py-1.5 rounded-lg border border-blue-200 font-bold hover:bg-blue-50 shadow-2xs"
-                              >
-                                ดูไฟล์
-                              </button>
-                            )}
-
+                        <div className="flex items-center gap-1.5">
+                          {count > 0 && (
                             <button
                               type="button"
-                              onClick={() => openScanner(doc)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-2xs"
-                              title="ถ่ายรูป / สแกนเอกสาร"
+                              onClick={() => onViewFile(currentCondUrls.split(',')[0])}
+                              className="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-1.5 rounded-lg border border-indigo-200 font-bold"
                             >
-                              <Icons.Camera size={12} /> ถ่ายรูป
+                              ดูรูป
                             </button>
-
-                            <label className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-bold cursor-pointer transition-colors shadow-2xs flex items-center gap-1">
-                              <Icons.Upload size={12} /> {uploading[doc] ? 'รอ...' : 'แนบไฟล์'}
-                              <input
-                                type="file"
-                                accept="image/*,application/pdf"
-                                className="hidden"
-                                onChange={(e) => handleFileUpload(e, doc)}
-                              />
-                            </label>
-                          </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Site Conditions Photos */}
-              <div className="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100 space-y-3">
-                <div className="flex justify-between items-center border-b border-indigo-100 pb-2">
-                  <h4 className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                    <Icons.Image /> รูปภาพสภาพหน้างาน (Site Conditions)
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => openScanner('site_cond_1')}
-                    className="text-[10px] bg-indigo-600 text-white px-2.5 py-1 rounded-lg font-bold flex items-center gap-1"
-                  >
-                    <Icons.Camera size={12} /> ถ่ายรูป
-                  </button>
-                </div>
-
-                {condLabels.map((cond) => {
-                  const currentCondUrls = docUrls[cond.id];
-                  const count = currentCondUrls ? currentCondUrls.split(',').filter(Boolean).length : 0;
-                  return (
-                    <div
-                      key={cond.id}
-                      className="flex items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-indigo-100 shadow-sm"
-                    >
-                      <div className="flex-1 min-w-0 pr-2">
-                        <span className="text-[11px] font-bold text-slate-700 block truncate">
-                          {cond.label}
-                        </span>
-                        {count > 0 && (
-                          <span className="text-[10px] text-indigo-600 font-bold block">
-                            {count} รูปภาพ
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {count > 0 && (
+                          )}
                           <button
                             type="button"
-                            onClick={() => onViewFile(currentCondUrls.split(',')[0])}
-                            className="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-1.5 rounded-lg border border-indigo-200 font-bold"
+                            onClick={() => openScanner(cond.docKey)}
+                            className="bg-indigo-700 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold flex items-center gap-0.5"
                           >
-                            ดูรูป
+                            <Icons.Camera size={11} /> กล้อง
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => openScanner(cond.docKey)}
-                          className="bg-indigo-700 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold flex items-center gap-0.5"
-                        >
-                          <Icons.Camera size={11} /> กล้อง
-                        </button>
-                        <label className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold cursor-pointer transition-colors shadow-sm whitespace-nowrap">
-                          + แนบ
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={(e) => handleFileUpload(e, cond.id, true)}
-                          />
-                        </label>
+                          <label className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold cursor-pointer transition-colors shadow-sm whitespace-nowrap">
+                            + แนบ
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => handleFileUpload(e, cond.id, true)}
+                            />
+                          </label>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* SAIS Inspection Result Selector */}
-              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Icons.FileText size={15} className="text-red-600" />
-                    <span>ผลการตรวจ SAIS (Inspection Result)</span>
-                  </label>
-                  <span className="text-[10px] text-slate-500 font-medium">
-                    (เลือก 'pass with OIL' เพื่อนำไปสู่ TRACKING OIL)
-                  </span>
+                    );
+                  })}
                 </div>
-
-                <select
-                  value={inspectionResult}
-                  onChange={(e) => setInspectionResult(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 focus:border-red-500 bg-white outline-none"
-                >
-                  <option value="">-- ยังไม่ระบุผล / รอผลตรวจ (Pending) --</option>
-                  <option value="Passed with Completed">Passed with Completed (ผ่านสมบูรณ์)</option>
-                  <option value="pass with OIL">pass with OIL (ผ่านโดยมีรายการแก้ไข OIL)</option>
-                  <option value="Failed">Failed (ไม่ผ่านการตรวจ)</option>
-                  <option value="ยกเลิก">ยกเลิก (Cancelled)</option>
-                </select>
-
-                {inspectionResult.toLowerCase().includes('oil') && (
-                  <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 font-bold flex items-center gap-1.5">
-                    <span>💡 ข้อมูลงานนี้จะเชื่อมต่อไปยังระบบ TRACKING OIL อัตโนมัติ เพื่อรออัปโหลด PDF 2 ฉบับ</span>
-                  </p>
-                )}
-              </div>
+              )}
 
               {/* Submit Button with Validation status */}
               <button
@@ -921,6 +903,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 <Icons.Check />
                 {isEditing ? (
                   <EditableText id="booking_btn_submit_edit" defaultText="บันทึกการแก้ไขคิวงาน" />
+                ) : isReinspection ? (
+                  <span>ยืนยันการจองคิวตรวจ (Re-inspection)</span>
                 ) : hasAllRequiredDocs ? (
                   <EditableText id="booking_btn_submit_confirm" defaultText="ยืนยันการจองคิวตรวจ (เอกสารครบถ้วน)" />
                 ) : (
@@ -962,8 +946,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
       {/* 5.2 Certificate Details Popup Modal */}
       {showCertPopup && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-[999] animate-fade-in">
-          <div className="bg-white rounded-3xl p-5 w-full max-w-md shadow-2xl border border-slate-200 animate-pop space-y-4">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-[1400] animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 w-full max-w-md shadow-2xl border border-slate-200 animate-pop space-y-4 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-base shadow-2xs border border-amber-200">
@@ -986,16 +970,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               >
                 ✕
               </button>
-            </div>
-
-            <div className="bg-blue-50/70 p-3.5 rounded-2xl border border-blue-200/80 text-xs text-blue-900 space-y-1">
-              <div className="font-bold flex items-center gap-1.5 text-blue-950">
-                <Icons.Shield size={14} className="text-blue-600" />
-                <span>Product Lines ที่ได้รับการรับรองตามระบบ:</span>
-              </div>
-              <p className="text-slate-600 text-[11px] leading-relaxed">
-                ข้อมูลดึงตรงจากการตั้งค่าผู้ตรวจของระบบ หากเลือกรุ่นที่ได้รับ Certificate ข้อมูลการลงคิวตรวจจะถูกต้องและแม่นยำ
-              </p>
             </div>
 
             {/* List of certified product lines */}

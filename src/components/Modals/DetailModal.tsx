@@ -3,6 +3,7 @@ import { Booking, User } from '../../types';
 import { Icons } from '../Icons';
 import { CameraScannerModal, DocumentTypeKey } from './CameraScannerModal';
 import { useTranslation } from '../../i18n';
+import { getThaiTime, getLocalDateString } from '../../mockData';
 
 const readFileAsDataUrl = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -64,6 +65,28 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   const [uploadTargetKey, setUploadTargetKey] = useState<DocumentTypeKey>('layout');
 
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // SAIS Inspection Result Management for Admin & Inspector (only for past dates)
+  const todayStr = getLocalDateString(getThaiTime());
+  const isPastJob = Boolean(booking.date && booking.date < todayStr);
+  const canSetInspectionResult = Boolean((isAdmin || user?.role === 'inspector') && isPastJob);
+  const [selectedResult, setSelectedResult] = useState<string>(
+    booking.inspection_result || booking.sais_status || ''
+  );
+  const [isUpdatingResult, setIsUpdatingResult] = useState(false);
+
+  const handleSaveResult = (newResult: string) => {
+    setSelectedResult(newResult);
+    if (onUpdateBooking) {
+      setIsUpdatingResult(true);
+      onUpdateBooking({
+        ...booking,
+        inspection_result: newResult,
+        sais_status: newResult,
+      });
+      setTimeout(() => setIsUpdatingResult(false), 800);
+    }
+  };
 
   // Generate shareable direct link to this specific job
   const jobShareUrl = typeof window !== 'undefined'
@@ -165,13 +188,26 @@ export const DetailModal: React.FC<DetailModalProps> = ({
 
   return (
     <>
-      <div className="modal-card p-4 sm:p-6 pb-12 sm:pb-6 w-full max-w-lg animate-pop bg-white rounded-2xl sm:rounded-3xl shadow-2xl relative max-h-[92vh] overflow-y-auto custom-scrollbar -webkit-overflow-scrolling-touch">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-full z-40 transition-colors"
-        >
-          <Icons.X />
-        </button>
+      <div className="modal-card w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl shadow-2xl relative max-h-[92dvh] flex flex-col overflow-hidden animate-pop">
+        {/* Sticky Header with title & close button */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white z-20 rounded-t-2xl sm:rounded-t-3xl">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+              <Icons.FileText />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">รายละเอียดงานตรวจ</h3>
+              <span className="text-[11px] text-slate-400 font-mono">ID: {booking.id}</span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors cursor-pointer"
+            title="ปิดหน้าต่าง"
+          >
+            <Icons.X size={18} />
+          </button>
+        </div>
 
         {/* Hidden File Input */}
         <input
@@ -184,34 +220,27 @@ export const DetailModal: React.FC<DetailModalProps> = ({
 
         {/* Upload Toast */}
         {uploadToast && (
-          <div className="absolute top-3 left-6 right-16 bg-emerald-600 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-lg flex items-center gap-1.5 animate-pop z-50">
+          <div className="absolute top-16 left-4 right-4 bg-emerald-600 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-lg flex items-center gap-1.5 animate-pop z-50">
             <Icons.Check /> {uploadToast}
           </div>
         )}
 
-        <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3 pr-10">
-          <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-            <Icons.FileText />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800 leading-tight">รายละเอียดงานตรวจ</h3>
-            <span className="text-[11px] text-slate-400">ID: {booking.id}</span>
-          </div>
-        </div>
-
-        {booking.status === 'cancelled' && (
-          <div className="mb-4 p-3 bg-rose-50 border border-rose-300 rounded-2xl flex items-center justify-between gap-2 text-xs animate-fade-in">
-            <div className="flex items-center gap-2 text-rose-800 font-bold">
-              <Icons.AlertCircle className="text-rose-600 shrink-0" size={16} />
-              <span>คิวตรวจนี้ถูกยกเลิกแล้ว (ระบบบันทึกเก็บประวัติไว้)</span>
+        {/* Scrollable Container with momentum scrolling and ample bottom padding for mobile */}
+        <div
+          className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 pb-36 sm:pb-12 space-y-4 text-sm text-slate-700 custom-scrollbar -webkit-overflow-scrolling-touch"
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+        >
+          {booking.status === 'cancelled' && (
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-300 rounded-2xl flex items-center justify-between gap-2 text-xs animate-fade-in">
+              <div className="flex items-center gap-2 text-rose-800 font-bold">
+                <Icons.AlertCircle className="text-rose-600 shrink-0" size={16} />
+                <span>คิวตรวจนี้ถูกยกเลิกแล้ว (ระบบบันทึกเก็บประวัติไว้)</span>
+              </div>
+              <span className="bg-rose-200/80 text-rose-900 text-[10px] font-black px-2 py-0.5 rounded-md shrink-0">
+                CANCELLED
+              </span>
             </div>
-            <span className="bg-rose-200/80 text-rose-900 text-[10px] font-black px-2 py-0.5 rounded-md shrink-0">
-              CANCELLED
-            </span>
-          </div>
-        )}
-
-        <div className="space-y-4 text-sm text-slate-700">
+          )}
           <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 grid grid-cols-2 gap-2">
             <div>
               <span className="text-slate-400 text-[10px] block font-bold">วันที่ตรวจ</span>
@@ -253,10 +282,121 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                 </div>
               </div>
 
-              {/* SAIS Status / Inspection Result */}
-              {(booking.inspection_result || booking.sais_status) && (
+              {/* SAIS Inspection Result - Only for Admin / Inspector for past jobs */}
+              {canSetInspectionResult && (
+                <div className="p-3.5 rounded-2xl border border-indigo-200 bg-indigo-50/70 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                      <Icons.FileText size={16} className="text-indigo-600" />
+                      <span>ผลการตรวจ SAIS (Inspection Result)</span>
+                    </label>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                      ตรวจแล้วเมื่อ {booking.date}
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <select
+                      value={selectedResult}
+                      onChange={(e) => handleSaveResult(e.target.value)}
+                      className="flex-1 text-xs p-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 bg-white focus:border-indigo-500 outline-none"
+                    >
+                      <option value="">-- ยังไม่ระบุผล / รอผลตรวจ (Pending) --</option>
+                      <option value="Passed with Completed">Passed with Completed (ผ่านสมบูรณ์)</option>
+                      <option value="pass with OIL">pass with OIL (ผ่านโดยมีรายการแก้ไข OIL)</option>
+                      <option value="Failed">Failed (ไม่ผ่านการตรวจ)</option>
+                      <option value="ยกเลิก">ยกเลิก (Cancelled)</option>
+                    </select>
+                    {isUpdatingResult && (
+                      <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                        <Icons.Check size={12} /> บันทึกแล้ว
+                      </span>
+                    )}
+                  </div>
+
+                  {/* File Inspection Result - Restricted to Admin & Inspector */}
+                  <div className="pt-2 border-t border-indigo-200/60">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1">
+                        <Icons.FileCheck size={14} className="text-indigo-600" />
+                        ไฟล์ผลการตรวจ SAIS
+                      </span>
+                      {booking.sais_result_file && (
+                        <span className="text-[10px] text-emerald-700 bg-emerald-100 font-bold px-2 py-0.5 rounded-full">
+                          มีไฟล์แนบแล้ว
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {booking.sais_result_file ? (
+                        <button
+                          type="button"
+                          onClick={() => onViewFile(booking.sais_result_file!)}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                        >
+                          <Icons.Eye size={13} />
+                          ดูไฟล์ผลการตรวจ ({booking.sais_result_filename || 'SAIS-Report'})
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-500 italic">ยังไม่มีไฟล์ผลการตรวจ</span>
+                      )}
+
+                      <label className="cursor-pointer px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+                        <Icons.Upload size={13} />
+                        {booking.sais_result_file ? 'เปลี่ยนไฟล์' : 'แนบไฟล์ผลตรวจ (PDF/รูป)'}
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const dataUrl = await readFileAsDataUrl(file);
+                              if (onUpdateBooking) {
+                                onUpdateBooking({
+                                  ...booking,
+                                  sais_result_file: dataUrl,
+                                  sais_result_filename: file.name,
+                                });
+                                setUploadToast(`อัปโหลดไฟล์ผลการตรวจ ${file.name} สำเร็จ`);
+                                setTimeout(() => setUploadToast(null), 3000);
+                              }
+                            } catch (err) {
+                              setUploadToast('อัปโหลดไฟล์ไม่สำเร็จ');
+                              setTimeout(() => setUploadToast(null), 3000);
+                            }
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="text-[10px] text-indigo-700/80 mt-1">
+                      🔒 สิทธิ์การเข้าถึง: เฉพาะผู้ดูแลระบบ (Admin) และผู้ตรวจเท่านั้นที่สามารถดูหรือแนบไฟล์ผลการตรวจนี้ได้
+                    </div>
+                  </div>
+
+                  {selectedResult.toLowerCase().includes('oil') && (
+                    <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between gap-2 text-xs text-amber-900">
+                      <span className="text-[11px] font-bold">⚠️ งานนี้มีรายการ OIL ที่ต้องติดตามใน Tracking OIL</span>
+                      {onOpenOilTracking && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenOilTracking(booking.equipment_no)}
+                          className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-black shrink-0 transition-colors cursor-pointer"
+                        >
+                          เปิด Tracking OIL
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SAIS Status / Inspection Result display for regular users (Only for past jobs) */}
+              {!canSetInspectionResult && isPastJob && (booking.inspection_result || booking.sais_status) && (
                 <div
-                  className={`p-3 rounded-2xl border flex items-center justify-between gap-2 text-xs font-bold ${
+                  className={`p-3 rounded-2xl border flex flex-col gap-2 text-xs font-bold ${
                     (booking.inspection_result || booking.sais_status || '').toLowerCase().includes('oil')
                       ? 'bg-amber-50 border-amber-300 text-amber-900'
                       : (booking.inspection_result || booking.sais_status || '').toLowerCase().includes('pass')
@@ -264,25 +404,19 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                       : 'bg-rose-50 border-rose-300 text-rose-900'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Icons.FileText size={16} />
-                    <div>
-                      <span className="text-[10px] opacity-75 block">ผลการตรวจ (SAIS Status)</span>
-                      <span className="font-black text-sm">{booking.inspection_result || booking.sais_status}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Icons.FileText size={16} />
+                      <div>
+                        <span className="text-[10px] opacity-75 block">ผลการตรวจ (SAIS Status)</span>
+                        <span className="font-black text-sm">{booking.inspection_result || booking.sais_status}</span>
+                      </div>
                     </div>
+                    <span className="text-[10px] opacity-75">ตรวจแล้วเมื่อ {booking.date}</span>
                   </div>
-
-                  {(booking.inspection_result || booking.sais_status || '').toLowerCase().includes('oil') &&
-                    onOpenOilTracking && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenOilTracking(booking.equipment_no)}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                      >
-                        <span>เปิด Tracking OIL</span>
-                        <Icons.ChevronRight size={14} />
-                      </button>
-                    )}
+                  <div className="text-[10px] font-normal opacity-85 pt-1 border-t border-current/20">
+                    🔒 สิทธิ์การเข้าถึงไฟล์ผลการตรวจ: เฉพาะผู้ดูแลระบบ (Admin) และ ผู้ตรวจ เท่านั้น
+                  </div>
                 </div>
               )}
 
@@ -625,57 +759,58 @@ export const DetailModal: React.FC<DetailModalProps> = ({
               )}
             </>
           )}
+
+          {/* Action buttons inside the scrollable container so they are 100% accessible on mobile */}
+          {canManage && (
+            <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col gap-2 pb-6">
+              {booking.status === 'cancelled' ? (
+                <>
+                  {onReactivateBooking && (
+                    <button
+                      onClick={onReactivateBooking}
+                      className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl border border-emerald-200 flex items-center justify-center gap-2 text-xs transition-colors shadow-2xs"
+                    >
+                      <Icons.RefreshCw size={15} /> กู้คืนคิวตรวจกลับมาใช้งาน (Reactivate)
+                    </button>
+                  )}
+                  <button
+                    onClick={onEdit}
+                    className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-xs transition-colors"
+                  >
+                    <Icons.Edit size={14} /> แก้ไขข้อมูลรายการนี้
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={onEdit}
+                    className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl border border-blue-200 flex items-center justify-center gap-2 text-xs transition-colors"
+                  >
+                    <Icons.Edit size={14} /> แก้ไขข้อมูลรายการนี้
+                  </button>
+                  {onCancelBooking && (
+                    <button
+                      onClick={onCancelBooking}
+                      className="w-full py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-xl border border-amber-300 flex items-center justify-center gap-2 text-xs transition-colors"
+                    >
+                      <Icons.AlertCircle size={15} /> ยกเลิกคิวตรวจ (เก็บประวัติไซต์งานไว้)
+                    </button>
+                  )}
+                </>
+              )}
+
+              <button
+                onClick={onDelete}
+                className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl border border-rose-200 flex items-center justify-center gap-2 text-xs transition-colors mt-1"
+              >
+                <Icons.Trash size={14} /> ลบรายการนี้ออกจากระบบ (ลบถาวร ไม่เก็บประวัติ)
+              </button>
+              <p className="text-[10px] text-slate-400 text-center leading-tight">
+                * ยกเลิกคิวตรวจ จะคงรายการไว้ในตารางและบันทึกประวัติ ส่วนลบรายการจะลบข้อมูลออกถาวร
+              </p>
+            </div>
+          )}
         </div>
-
-        {canManage && (
-          <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col gap-2">
-            {booking.status === 'cancelled' ? (
-              <>
-                {onReactivateBooking && (
-                  <button
-                    onClick={onReactivateBooking}
-                    className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl border border-emerald-200 flex items-center justify-center gap-2 text-xs transition-colors shadow-2xs"
-                  >
-                    <Icons.RefreshCw size={15} /> กู้คืนคิวตรวจกลับมาใช้งาน (Reactivate)
-                  </button>
-                )}
-                <button
-                  onClick={onEdit}
-                  className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-xs transition-colors"
-                >
-                  <Icons.Edit size={14} /> แก้ไขข้อมูลรายการนี้
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={onEdit}
-                  className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl border border-blue-200 flex items-center justify-center gap-2 text-xs transition-colors"
-                >
-                  <Icons.Edit size={14} /> แก้ไขข้อมูลรายการนี้
-                </button>
-                {onCancelBooking && (
-                  <button
-                    onClick={onCancelBooking}
-                    className="w-full py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-xl border border-amber-300 flex items-center justify-center gap-2 text-xs transition-colors"
-                  >
-                    <Icons.AlertCircle size={15} /> ยกเลิกคิวตรวจ (เก็บประวัติไซต์งานไว้)
-                  </button>
-                )}
-              </>
-            )}
-
-            <button
-              onClick={onDelete}
-              className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl border border-rose-200 flex items-center justify-center gap-2 text-xs transition-colors mt-1"
-            >
-              <Icons.Trash size={14} /> ลบรายการนี้ออกจากระบบ (ลบถาวร ไม่เก็บประวัติ)
-            </button>
-            <p className="text-[10px] text-slate-400 text-center leading-tight">
-              * ยกเลิกคิวตรวจ จะคงรายการไว้ในตารางและบันทึกประวัติ ส่วนลบรายการจะลบข้อมูลออกถาวร
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Camera Scanner Modal */}

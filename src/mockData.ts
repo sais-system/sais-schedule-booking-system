@@ -13,6 +13,30 @@ export const getLocalDateString = (dateObj: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper to determine the linked inspector name for a user (especially inspector role)
+export const getMyInspectorName = (user: User | null | undefined, inspectors: Inspector[]): string => {
+  if (!user) return '';
+  if (user.inspector_mapped_name && user.inspector_mapped_name.trim()) {
+    return user.inspector_mapped_name.trim();
+  }
+  // Try exact match on name or username
+  const exact = inspectors.find(
+    (i) => i.name.toLowerCase() === user.username.toLowerCase() ||
+           i.name.toLowerCase() === (user.full_name || '').toLowerCase()
+  );
+  if (exact) return exact.name;
+
+  // Try substring match
+  const partial = inspectors.find(
+    (i) => (user.full_name && user.full_name.toLowerCase().includes(i.name.toLowerCase())) ||
+           (user.username && user.username.toLowerCase().includes(i.name.toLowerCase())) ||
+           (user.full_name && i.name.toLowerCase().includes(user.full_name.toLowerCase()))
+  );
+  if (partial) return partial.name;
+
+  return user.inspector_mapped_name || user.full_name || user.username || '';
+};
+
 export const DEFAULT_INSPECTORS: Inspector[] = [
   { name: 'สมศักดิ์', product_lines: 'ES1, 3300, 5500, S-villas, ES2', order: 1 },
   { name: 'วิชัย', product_lines: 'ES1, 3300, ES5/ES5.1, MOR-R', order: 2 },
@@ -101,6 +125,30 @@ export const DEFAULT_USERS: User[] = [
     role: 'viewer',
     status: 'approved',
     created_at: '2026-01-15T11:00:00.000Z',
+  },
+  {
+    username: 'supervisor',
+    password: 'password123',
+    full_name: 'กิตติชัย ยอดเยี่ยม (Supervisor)',
+    department: 'Field Operations / Installation',
+    position: 'Site Supervisor',
+    phone: '0861234567',
+    email: 'supervisor@schindler.com',
+    role: 'supervisor',
+    status: 'approved',
+    created_at: '2026-01-16T12:00:00.000Z',
+  },
+  {
+    username: 'fitter',
+    password: 'password123',
+    full_name: 'ธนวัฒน์ ช่างซ่อม (Fitter)',
+    department: 'Installation Team A',
+    position: 'Field Fitter Technician',
+    phone: '0872345678',
+    email: 'fitter@schindler.com',
+    role: 'fitter',
+    status: 'approved',
+    created_at: '2026-01-17T13:00:00.000Z',
   }
 ];
 

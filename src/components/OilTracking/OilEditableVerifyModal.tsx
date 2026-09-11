@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { OilTrackingRecord, OilItem, OilSource, OilItemStatus, Inspector, User } from '../../types';
+import { OilTrackingRecord, OilItem, OilSource, OilItemStatus, Inspector, User, OilVersionHistory } from '../../types';
 import { Icons } from '../Icons';
+import { calculateSlaDueDate } from '../../utils/oilSlaHelper';
 
 interface OilEditableVerifyModalProps {
   initialData: {
@@ -14,6 +15,8 @@ interface OilEditableVerifyModalProps {
     customerFilename?: string;
     existingRecordId?: string;
     bookingId?: string;
+    version?: string;
+    version_history?: OilVersionHistory[];
   };
   inspectors: Inspector[];
   currentUser: User | null;
@@ -104,18 +107,32 @@ export const OilEditableVerifyModal: React.FC<OilEditableVerifyModalProps> = ({
         initialData.existingRecordId ||
         `oil_${cleanEq}_${cleanDate || Date.now()}`;
 
-      const cleanedItems: OilItem[] = items.map((it, idx) => ({
-        id: it.id || `oil_item_${Date.now()}_${idx + 1}`,
-        uid: it.uid?.trim() || `Item-${idx + 1}`,
-        item_type: it.item_type || 'square',
-        source: it.source || 'Installer',
-        title: it.title?.trim() || '',
-        description: it.description?.trim() || '',
-        status: it.status || 'Open',
-        responsible: it.responsible?.trim() || (it.source === 'Customer' ? 'Customer (ลูกค้า)' : 'Installer / Schindler'),
-        created_at: it.created_at || new Date().toISOString(),
-        notes: it.notes?.trim() || '',
-      }));
+      const cleanedItems: OilItem[] = items.map((it, idx) => {
+        const finalType = it.item_type || 'square';
+        const slaDays = it.sla_days || (finalType === 'triangle' ? 7 : 28);
+        const firstInspDate = it.first_inspection_date || inspectionDate.trim() || new Date().toLocaleDateString('th-TH');
+        const slaDueDate = it.sla_due_date || calculateSlaDueDate(firstInspDate, slaDays);
+
+        return {
+          id: it.id || `oil_item_${Date.now()}_${idx + 1}`,
+          uid: it.uid?.trim() || `Item-${idx + 1}`,
+          item_type: finalType,
+          sla_days: slaDays,
+          sla_due_date: slaDueDate,
+          first_inspection_date: firstInspDate,
+          source: it.source || 'Installer',
+          title: it.title?.trim() || '',
+          description: it.description?.trim() || '',
+          status: it.status || 'Open',
+          responsible: it.responsible?.trim() || (it.source === 'Customer' ? 'Customer (ลูกค้า)' : 'Installer / Schindler'),
+          created_at: it.created_at || new Date().toISOString(),
+          notes: it.notes?.trim() || '',
+          fix_photos: it.fix_photos || [],
+          fix_notes: it.fix_notes || '',
+          fix_updated_at: it.fix_updated_at,
+          fix_submitted_by: it.fix_submitted_by,
+        };
+      });
 
       const finalRecord: OilTrackingRecord = {
         id: recordId,
@@ -123,12 +140,14 @@ export const OilEditableVerifyModal: React.FC<OilEditableVerifyModalProps> = ({
         site_name: siteName.trim(),
         inspector_name: inspectorName.trim() || 'Unassigned',
         supervisor: supervisor.trim(),
-                inspection_date: inspectionDate.trim() || new Date().toLocaleDateString('th-TH'),
+        inspection_date: inspectionDate.trim() || new Date().toLocaleDateString('th-TH'),
         status: cleanedItems.length > 0 ? (status === 'Waiting for PDF' ? 'OIL Recorded' : status) : 'Waiting for PDF',
         items: cleanedItems,
         booking_id: initialData.bookingId || '',
         installer_filename: initialData.installerFilename || '',
         customer_filename: initialData.customerFilename || '',
+        version: typeof initialData.version === 'number' ? initialData.version : 0,
+        version_history: initialData.version_history || [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         created_by: currentUser?.full_name || currentUser?.username || 'System',
@@ -145,8 +164,8 @@ export const OilEditableVerifyModal: React.FC<OilEditableVerifyModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[600] flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto animate-fade-in">
-      <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[95vh] my-auto">
+    <div className="fixed inset-0 z-[600] flex items-start sm:items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto animate-fade-in">
+      <div className="bg-white w-full max-w-5xl rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94dvh] my-auto">
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-red-950 text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -157,6 +176,11 @@ export const OilEditableVerifyModal: React.FC<OilEditableVerifyModalProps> = ({
               <h2 className="text-sm sm:text-base font-black text-white tracking-tight truncate">
                 ตรวจสอบและแก้ไขข้อมูลก่อนบันทึก (OIL Verification)
               </h2>
+              {initialData.version && (
+                <span className="px-2.5 py-0.5 bg-purple-500/30 text-purple-200 border border-purple-400/40 text-[11px] font-black rounded-full shrink-0">
+                  {initialData.version}
+                </span>
+              )}
               <span className="hidden sm:inline-block px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold rounded-full shrink-0">
                 สำคัญ: ตรวจทาน
               </span>
@@ -324,7 +348,7 @@ export const OilEditableVerifyModal: React.FC<OilEditableVerifyModalProps> = ({
                 >
                   <option value="OIL Recorded">OIL Recorded (บันทึกรายการปัญหาแล้ว)</option>
                   <option value="In Progress">In Progress (อยู่ระหว่างแก้ไข)</option>
-                  <option value="Waiting for PDF">Waiting for PDF (รอเอกสาร)</option>
+                  <option value="Waiting for PDF">รออัพโหลดPDFเพื่อดึงรายการOIL</option>
                   <option value="Completed">Completed (แก้ไขครบถ้วน ปิดรายการ)</option>
                 </select>
               </div>

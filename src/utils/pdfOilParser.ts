@@ -1,5 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import { OilItem, OilSource } from '../types';
+import { OilItem, OilSource, OilMasterUid } from '../types';
+import { matchUidMaster, calculateSlaDueDate } from './oilSlaHelper';
 
 // Set worker source safely for browser environment
 if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
@@ -22,6 +23,8 @@ export interface ParsedPdfResult {
   items: Array<{
     uid: string;
     item_type?: 'triangle' | 'square';
+    sla_days?: number;
+    sla_due_date?: string;
     description: string;
     title?: string;
     source: OilSource;
@@ -188,23 +191,19 @@ export async function extractTextFromPdf(fileOrBuffer: File | ArrayBuffer): Prom
       // Thai Typography Normalization & Error Correction:
       let cleanedLine = lineText
         .normalize('NFC')
-        // Fix space between Thai consonant and combining upper/lower vowels or tone marks
+        // Fix space between Thai consonant and combining upper/lower vowels or tone marks: e.g. ก + ิ -> กิ
         .replace(/([\u0E01-\u0E2E])\s+([\u0E30-\u0E3A\u0E47-\u0E4E])/g, '$1$2')
-        // Fix space between upper vowel and tone mark: e.g. ิ + ้
+        // Fix space between upper vowel and tone mark: e.g. ิ + ้ -> ี้
         .replace(/([\u0E31\u0E34-\u0E37\u0E47\u0E4D])\s+([\u0E48-\u0E4C])/g, '$1$2')
-        // Fix space between Thai leading vowel (เ แ โ ใ ไ) and following consonant
+        // Fix space between Thai leading vowel (เ แ โ ใ ไ) and following consonant: e.g. เ + ข -> เข
         .replace(/([เแโใไ])\s+([\u0E01-\u0E2E])/g, '$1$2')
-        // Fix spaces accidentally split inside Thai words
-        .replace(/([\u0E00-\u0E7F])\s+([\u0E00-\u0E7F])/g, (m, c1, c2) => {
-          // Keep space if between Thai punctuation or digits
-          if (/[\u0E2F\u0E46\u0E50-\u0E59]/.test(c1) || /[\u0E2F\u0E46\u0E50-\u0E59]/.test(c2)) {
-            return `${c1} ${c2}`;
-          }
-          return `${c1}${c2}`;
-        })
+        // Fix space between Thai consonant and Sara Am (ำ): e.g. ท + ำ -> ทำ
+        .replace(/([\u0E01-\u0E2E])\s+([\u0E33])/g, '$1$2')
+        // Fix space between tone mark and Sara Am: e.g. น + ้ + ำ -> น้ำ
+        .replace(/([\u0E01-\u0E2E])\s*([\u0E48-\u0E4C])\s*([\u0E33])/g, '$1$2$3')
         // Fix broken spaces around dots in section/UID numbers: 3 . 4 . 19 -> 3.4.19
         .replace(/(\d{1,2})\s*\.\s*(\d{1,2}(?:\s*\.\s*\d{1,2})*(?:\s*\.\s*[a-zA-Z])?)/g, (m) => m.replace(/\s+/g, ''))
-        // Normalize multiple spaces into single space
+        // Normalize multiple spaces into single space while preserving word spacing
         .replace(/[ \t]+/g, ' ')
         .trim();
 
@@ -231,7 +230,8 @@ export async function extractTextFromPdf(fileOrBuffer: File | ArrayBuffer): Prom
  */
 export function parseOilPdfText(
   fullText: string,
-  preferredSource?: OilSource
+  preferredSource?: OilSource,
+  masterList?: OilMasterUid[]
 ): ParsedPdfResult {
   // 1. Determine detected type (Installer vs Customer)
   let detectedType: OilSource = preferredSource || 'Installer';
@@ -307,6 +307,8 @@ export function parseOilPdfText(
     title?: string;
     source: OilSource;
     item_type?: 'triangle' | 'square';
+    sla_days?: number;
+    sla_due_date?: string;
   }> = [];
 
   const fitterIdx = fullText.search(/Responsible\s+fitter/i);
@@ -378,32 +380,31 @@ export function parseOilPdfText(
     }
 
     // STRICT BOUNDARY: The comment text is strictly what follows 'Annotations Comment'
-    // and terminates IMMEDIATELY before:
-    // 1. Next section headers (e.g. "16 Final checks", "17 Inspection sign-off", "11 Machine room", etc.)
-    // 2. Next question code / UID (e.g. 11.13.3, 3.4.20, 6.0.7, 2.14.2, 1.1)
-    // 3. Document headers / footers / sign-offs / page markers
-    // 4. Next Annotations Comment or answer tags
+    // It contains mixed Thai & English text and numbered lists (e.g. 1., 2., 3., -, *)
+    // It terminates strictly when:
+    // 1. Next question item begins with a multi-level UID followed by an English question name or answer box
+    // 2. Next section header begins (e.g. "16 Final checks", "17 Inspection sign-off", "11 Machine room")
+    // 3. Document headers/footers/page breaks appear
+    // 4. Next 'Annotations Comment'
     const boundaryRegexes = [
-      // Next item code / UID anywhere (e.g. 3.4.19, 6.0.6.b, 11.13.1.c, 6.0.7)
-      /(?:^|\n|\r|\s{2,}|\s+)(?:\d{1,2}\.\d{1,2}(?:\.\d{1,2})+(?:\.[a-zA-Z])?|\d{1,2}\.\d{1,2}\.[a-zA-Z]|\d{1,2}\.\d{1,2})\b/,
-      // Section headers with keywords (e.g. "16 Final checks", "17 Inspection sign-off", "11 Machine room")
+      // Next 'Annotations Comment' tag
+      /(?:^|\n|\r|\s+)Annotations?\s*(?:[:\-])?\s*Comment/i,
+      // Next Question with UID (e.g. 3.4.19, 6.0.6.b, 11.13.2.a) followed by an English Question Title on a new line or clear gap
+      /(?:^|\n|\r)\s*(?:\[#\d+(?:\.\d+)*\]\s*)?(\d{1,2}\.\d{1,2}(?:\.\d{1,2})*(?:\.[a-zA-Z])?)\s+([A-Z][a-zA-Z0-9\/\-\(\)\s]{3,})/i,
+      // Next Question UID followed immediately by answer mark (e.g. 3.4.19 No, 6.0.6.b □No, 2.14.1 Yes)
+      /(?:^|\n|\r)\s*(?:\[#\d+(?:\.\d+)*\]\s*)?(\d{1,2}\.\d{1,2}(?:\.\d{1,2})*(?:\.[a-zA-Z])?)\s*(?:[□■△▲\u25A0\u25A1\u25B2\u25B3]\s*)?(?:No|Yes|NA|Fail)\b/i,
+      // Standalone multi-segment checklist UID (at least 3 segments like 3.4.19 or 11.13.2.a) starting on a new line
+      /(?:^|\n|\r)\s*(?:\[#\d+(?:\.\d+)*\]\s*)?(\d{1,2}\.\d{1,2}\.\d{1,2}(?:\.[a-zA-Z])?)(?:\s+|$)/,
+      // Major section headers (e.g. "16 Final checks", "17 Inspection sign-off", "11 Machine room", etc.)
       /(?:^|\n|\r|\s{2,}|\b)\s*(?:1[0-9]|[1-9])\.?\s+(?:Final\s*checks?|Inspection\s*sign[\s\-]*offs?|Sign[\s\-]*offs?|Machine\s*room|Car\s*enclosure|Car\s*top|Well|Shaft|Pit\s*area|Pit|Landing|General|Maintenance|Traction|Hydraulic|Electrical|Door|Governor|Buffer|Counterweight|Brake|Safety|Emergency|Installation|Overview)\b/i,
-      // Standalone section title even inline if PDF text is single-line joined
-      /\b(?:1[0-9]|[1-9])\.?\s+(?:Final\s*checks?|Inspection\s*sign[\s\-]*offs?|Sign[\s\-]*offs?)\b/i,
       // Section header with uppercase title e.g. "16. FINAL CHECKS"
       /(?:^|\n|\r|\s{2,})\s*\d{1,2}\.\s+[A-Z]{3,}/,
-      // Checkbox and answers leading into next question e.g. "□No", "△No", "No 11.13", "Yes", "NA"
-      /(?:^|\n|\r|\s+)(?:[□■△▲\u25A0\u25A1\u25B2\u25B3]\s*)?(?:No|Yes|NA|Fail)\b/i,
-      // Any uppercase English question header starting after a Thai sentence (prevents bleeding of question text into comments)
-      /(?:[\u0E00-\u0E7F])\s+(?:[A-Z][a-z]+(?:\s+[A-Za-z0-9\/\-]+){2,})/,
       // Page break markers or page count
       /(?:^|\n|\r|\s+)(?:---\s*PAGE\s*\d+\s*---|Page\s*\d+\s*of\s*\d+)/i,
       // Form header/footer labels
       /(?:^|\n|\r|\s+)(?:Commission\s*number|Elevator\s*location|SAIS\s*Inspector|Responsible\s*fitter|Supervisor|Inspection\s*sign-off|Findings\s*related\s*to|Findings\s*for|Schindler)/i,
       // Date or signature lines
       /(?:^|\n|\r|\s+)(?:Date\s*\[#[^\]]+\]|Date\s*:|Signature\s*:)/i,
-      // Next Annotations Comment
-      /(?:^|\n|\r|\s+)Annotations?\s*(?:[:\-])?\s*Comment/i,
     ];
 
     let stopIndex = afterText.length;
@@ -411,19 +412,8 @@ export function parseOilPdfText(
     for (const regex of boundaryRegexes) {
       const match = afterText.match(regex);
       if (match && match.index !== undefined && match.index < stopIndex) {
-        // If the match starts with a Thai character (from the English bleed regex), stop right after the Thai character
-        if (regex.source.includes('[\u0E00-\u0E7F]')) {
-          stopIndex = match.index + 1;
-        } else {
-          stopIndex = match.index;
-        }
+        stopIndex = match.index;
       }
-    }
-
-    // Additional scan: if there is a next UID pattern located after index 0
-    const nextUidMatch = afterText.slice(0, stopIndex).match(/(?:^|\n|\r|\s+)(\d{1,2}\.\d{1,2}(?:\.\d{1,2})*(?:\.[a-zA-Z])?)(?:\s|$)/);
-    if (nextUidMatch && nextUidMatch.index !== undefined && nextUidMatch.index > 0) {
-      stopIndex = Math.min(stopIndex, nextUidMatch.index);
     }
 
     let comment = afterText.slice(0, stopIndex);
@@ -431,25 +421,39 @@ export function parseOilPdfText(
     // Clean up comment text strictly: strip leading tildes, dashes, colons, stars
     comment = comment
       .replace(/^[\s~:\-\*#]+/, '')
-      // Remove any trailing section header bleed-through (e.g. "แนว 16 Final checks" or "16 Final checks")
-      .replace(/(?:^|\s+)แนว\s+\d{1,2}\s+Final\s+checks?.*$/i, '')
-      .replace(/(?:^|\s+)\d{1,2}\s+Final\s+checks?.*$/i, '')
-      .replace(/(?:^|\s+)\d{1,2}\s+Inspection\s+sign[\s\-]*off.*$/i, '')
+      // Remove any trailing section header bleed-through (e.g. "16 Final checks")
+      .replace(/(?:^|\n|\r|\s+)(?:แนว\s+)?\d{1,2}\.?\s+(?:Final\s*checks?|Inspection\s*sign[\s\-]*off).*$/is, '')
       // Strip any trailing English questions or UID codes that bled onto the tail
-      .replace(/(?:^|\s+)(?:\d{1,2}\.\d{1,2}(?:\.\d{1,2})*(?:\.[a-zA-Z])?)\s+[A-Za-z].*$/i, '')
-      .replace(/(?:^|\s+)(?:[□■△▲\u25A0\u25A1\u25B2\u25B3]\s*)?(?:No|Yes|NA|Fail)$/i, '')
+      .replace(/(?:^|\n|\r|\s+)(?:\[#\d+(?:\.\d+)*\]\s*)?(?:\d{1,2}\.\d{1,2}(?:\.\d{1,2})*(?:\.[a-zA-Z])?)\s+[A-Z][a-zA-Z\s\/\-]+.*$/s, '')
+      .replace(/(?:^|\n|\r|\s+)(?:[□■△▲\u25A0\u25A1\u25B2\u25B3]\s*)?(?:No|Yes|NA|Fail)$/i, '')
       .normalize('NFC')
       .replace(/\r/g, '')
       .trim();
 
     // If there's an actual comment inside Annotations Comment
     if (comment.length > 0) {
+      // 1.1 Master Data fallback & confirmation check
+      let finalItemType = itemType;
+      let slaDays = finalItemType === 'triangle' ? 7 : 28;
+
+      if (masterList && uid) {
+        const masterMatch = matchUidMaster(uid, masterList);
+        if (masterMatch) {
+          finalItemType = masterMatch.item_type;
+          slaDays = masterMatch.sla_days || (finalItemType === 'triangle' ? 7 : 28);
+        }
+      }
+
+      const slaDueDate = calculateSlaDueDate(inspectionDate || new Date().toLocaleDateString('th-TH'), slaDays);
+
       items.push({
         uid,
         title: itemTitle || '',
         description: comment,
         source: detectedType,
-        item_type: itemType,
+        item_type: finalItemType,
+        sla_days: slaDays,
+        sla_due_date: slaDueDate,
       });
     }
   }
@@ -471,7 +475,8 @@ export function parseOilPdfText(
  */
 export function mergeOilResults(
   installerData: ParsedPdfResult | null,
-  customerData: ParsedPdfResult | null
+  customerData: ParsedPdfResult | null,
+  masterList?: OilMasterUid[]
 ): {
   equipmentNo: string;
   siteName: string;
@@ -489,21 +494,43 @@ export function mergeOilResults(
   const mergedItems: OilItem[] = [];
   let itemIndex = 1;
 
+  const processItem = (it: ParsedPdfResult['items'][0], defaultResp: string): OilItem => {
+    let finalType = it.item_type || 'square';
+    let slaDays = it.sla_days || (finalType === 'triangle' ? 7 : 28);
+
+    if (masterList && it.uid) {
+      const match = matchUidMaster(it.uid, masterList);
+      if (match) {
+        finalType = match.item_type;
+        slaDays = match.sla_days || (finalType === 'triangle' ? 7 : 28);
+      }
+    }
+
+    const slaDueDate =
+      it.sla_due_date ||
+      calculateSlaDueDate(inspectionDate || new Date().toLocaleDateString('th-TH'), slaDays);
+
+    return {
+      id: `oil_item_${Date.now()}_${itemIndex++}`,
+      uid: it.uid || `Item-${itemIndex}`,
+      item_type: finalType,
+      sla_days: slaDays,
+      sla_due_date: slaDueDate,
+      first_inspection_date: inspectionDate,
+      source: it.source,
+      title: it.title || '',
+      description: it.description || '',
+      status: 'Open',
+      responsible: defaultResp,
+      created_at: new Date().toISOString(),
+      notes: '',
+    };
+  };
+
   // Add Installer items
   if (installerData?.items) {
     for (const it of installerData.items) {
-      mergedItems.push({
-        id: `oil_item_${Date.now()}_${itemIndex++}`,
-        uid: it.uid || `Item-${itemIndex}`,
-        item_type: it.item_type || 'square',
-        source: 'Installer',
-        title: it.title || '',
-        description: it.description || '',
-        status: 'Open',
-        responsible: 'Installer / Schindler',
-        created_at: new Date().toISOString(),
-        notes: '',
-      });
+      mergedItems.push(processItem(it, 'Installer / Schindler'));
     }
   }
 
@@ -515,18 +542,7 @@ export function mergeOilResults(
         (existing) => existing.uid === it.uid && existing.description === it.description
       );
       if (!exists) {
-        mergedItems.push({
-          id: `oil_item_${Date.now()}_${itemIndex++}`,
-          uid: it.uid || `Item-${itemIndex}`,
-          item_type: it.item_type || 'square',
-          source: 'Customer',
-          title: it.title || '',
-          description: it.description || '',
-          status: 'Open',
-          responsible: 'Customer (ลูกค้า)',
-          created_at: new Date().toISOString(),
-          notes: '',
-        });
+        mergedItems.push(processItem(it, 'Customer (ลูกค้า)'));
       }
     }
   }

@@ -13,6 +13,7 @@ import {
 import {
   getThaiTime,
   getLocalDateString,
+  getMyInspectorName,
   DEFAULT_SETTINGS,
 } from './mockData';
 import {
@@ -62,6 +63,8 @@ import { ActivityModal } from './components/Modals/ActivityModal';
 import { TutorialModal } from './components/Modals/TutorialModal';
 import { CloudShareModal } from './components/Modals/CloudShareModal';
 import { AdminSettingsModal } from './components/Modals/AdminSettingsModal';
+import { AdminAppearanceSettings } from './components/AdminAppearanceSettings';
+import { UniversalTextModal } from './components/Modals/UniversalTextModal';
 import { SaisDatabasesModal } from './components/SaisDatabases/SaisDatabasesModal';
 import { PullToRefreshHold } from './components/PullToRefreshHold';
 import { EditableText, LiveEditProvider } from './components/EditableText';
@@ -123,7 +126,8 @@ export default function App() {
   const [period, setPeriod] = useState<number>(getThaiTime().getDate() > 15 ? 1 : 0);
   const [lastSyncTime, setLastSyncTime] = useState<Date>(getThaiTime());
   const [currentView, setCurrentView] = useState<'calendar' | 'search' | 'documents' | 'my_bookings' | 'dashboard' | 'admin'>('calendar');
-  const [adminTab, setAdminTab] = useState<'menu' | 'users' | 'inspectors' | 'special' | 'all_bookings' | 'settings'>('menu');
+  const [adminTab, setAdminTab] = useState<'menu' | 'users' | 'inspectors' | 'special' | 'all_bookings' | 'settings' | 'appearance'>('menu');
+  const [showUniversalTextModal, setShowUniversalTextModal] = useState<boolean>(false);
   const [myBookingsTab, setMyBookingsTab] = useState<'pending' | 'approved' | 'completed' | 'leave'>('pending');
   const [selectedInspectorFilter, setSelectedInspectorFilter] = useState<string>('all');
 
@@ -177,10 +181,6 @@ export default function App() {
   const [searchFilterArea, setSearchFilterArea] = useState('All');
   const [searchInspector, setSearchInspector] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Inspector Management States
-  const [newInsInlineName, setNewInsInlineName] = useState('');
-  const [newInsInlineLines, setNewInsInlineLines] = useState('ES1, 3300, 5500, S-villas');
   const [inspectorSearchQuery, setInspectorSearchQuery] = useState('');
 
   // Dashboard filters
@@ -750,9 +750,16 @@ export default function App() {
     title: string,
     color = '#22c55e'
   ) => {
+    // If inspector role, strictly ensure leaves are only created for the logged-in inspector
+    let finalTargets = targetInspectors;
+    if (currentUser?.role === 'inspector' && specialType === 'leave') {
+      const myInspector = getMyInspectorName(currentUser, inspectors);
+      finalTargets = [myInspector];
+    }
+
     const newItems: Booking[] = [];
     dates.forEach((d) => {
-      targetInspectors.forEach((inspector) => {
+      finalTargets.forEach((inspector) => {
         let eq = `SPECIAL_${Date.now()}`;
         if (specialType === 'leave') eq = `LEAVE_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         if (specialType === 'company_event') eq = `EVENT_${Date.now()}_${color}`;
@@ -937,11 +944,23 @@ export default function App() {
             '--app-bg': settings.appBg || '#f8fafc',
             '--header-bg': settings.headerBg || '#1e293b',
             '--header-text': settings.headerText || '#ffffff',
+            '--nav-bg': settings.navBg || '#ffffff',
+            '--nav-active-color': settings.navActiveColor || '#dc2626',
+            '--nav-inactive-color': settings.navInactiveColor || '#64748b',
+            '--font-nav-text': `${settings.fontNavText || 10}px`,
             '--table-header-bg': settings.tableHeaderBg || '#1e293b',
             '--table-header-text': settings.tableHeaderText || '#ffffff',
             '--table-border': settings.tableBorder || '#cbd5e1',
             '--card-radius': `${settings.cardRadius || 6}px`,
             '--card-padding': `${settings.cardPadding || 4}px`,
+            '--card-min-height': `${settings.cardMinHeight || 35}px`,
+            '--font-card-title': `${settings.fontCardTitle || 11}px`,
+            '--font-card-sub': `${settings.fontCardSub || 10}px`,
+            '--font-date-header': `${settings.fontDateHeader || 12}px`,
+            '--font-inspector-header': `${settings.fontInspectorHeader || 12}px`,
+            '--modal-bg': settings.modalBg || '#ffffff',
+            '--modal-text': settings.modalText || '#0f172a',
+            '--modal-font-scale': settings.fontModalScale || 1.0,
           } as React.CSSProperties
         }
       >
@@ -1033,6 +1052,36 @@ export default function App() {
             <Icons.GraduationCap size={13} />
             <span className="hidden lg:inline">{t.tutorialButton}</span>
           </button>
+
+          {/* Live Edit Pen Toggle Button for Admins (Requirement 4) */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                const nextEdit = !settings.isLiveEdit;
+                const nextSettings = { ...settings, isLiveEdit: nextEdit };
+                setSettings(nextSettings);
+                saveSettingsToStorage(nextSettings);
+                firestoreSaveSettings(nextSettings);
+                setSuccessModal(
+                  nextEdit
+                    ? 'เปิดโหมดปากกาแก้ไขข้อความสดแล้ว (คลิกที่ข้อความใดๆ ที่มีไอคอนปากกาสีทองบนหน้าเว็บเพื่อแก้ไข)'
+                    : 'ปิดโหมดปากกาแก้ไขข้อความแล้ว'
+                );
+              }}
+              className={`p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1 transition-all active:scale-95 shrink-0 border ${
+                settings.isLiveEdit
+                  ? 'bg-amber-400 text-amber-950 border-amber-300 font-black shadow-amber-300/40 animate-pulse'
+                  : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
+              }`}
+              title={settings.isLiveEdit ? 'คลิกเพื่อปิดโหมดปากกา' : 'คลิกเพื่อเปิดโหมดปากกาแก้ไขข้อความสดทุกจุด'}
+            >
+              <Icons.Edit size={13} />
+              <span className="hidden lg:inline">
+                {settings.isLiveEdit ? 'โหมดปากกา: เปิดอยู่' : 'ปากกาแก้ไขสด'}
+              </span>
+            </button>
+          )}
 
           {/* Settings Menu Button */}
           <button
@@ -1393,7 +1442,7 @@ export default function App() {
                 </div>
 
                 {/* Inspector Dropdown */}
-                <div className="flex items-center gap-1.5 flex-1 min-w-[140px] max-w-[240px]">
+                <div className="flex items-center gap-1.5 flex-1 min-w-[140px] max-w-[280px]">
                   <span className="text-[10px] font-bold text-slate-500 shrink-0">
                     <EditableText
                       id="lbl_filter_inspector"
@@ -1417,15 +1466,6 @@ export default function App() {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              {/* Total Bookings Count Badge */}
-              <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-slate-600 font-mono bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span className="font-bold text-slate-800">
-                  {calendarDisplayBookings.filter((b) => b.status !== 'cancelled').length}
-                </span>
-                <span className="text-slate-400">งาน</span>
               </div>
             </div>
 
@@ -2049,28 +2089,32 @@ export default function App() {
                   <span className="font-bold text-xs text-slate-800">จัดการวันกิจกรรม / วันลา / วันหยุดบริษัท</span>
                 </button>
 
-                {/* Advanced Admin Settings & Detailed Configuration Button */}
+                {/* Appearance & Colors Customization (Requirement 3.1) */}
                 <button
-                  onClick={() => setShowAdminSettingsModal(true)}
-                  className="p-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white rounded-3xl shadow-md border border-blue-500/50 flex flex-col items-center gap-2 hover:opacity-95 transition-all text-center col-span-2"
+                  onClick={() => setAdminTab('appearance')}
+                  className="p-4 bg-gradient-to-br from-pink-500 via-rose-500 to-purple-600 text-white rounded-3xl shadow-md border border-pink-400/40 flex flex-col items-center gap-2 hover:opacity-95 transition-all text-center col-span-2"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-white/20 text-white flex items-center justify-center">
-                    <Icons.Settings size={24} />
+                    <Icons.Palette size={24} />
                   </div>
-                  <span className="font-bold text-xs text-white">⚙️ การตั้งค่าขั้นสูง & ปรับแต่งเว็บไซต์อย่างละเอียด (Advanced Settings)</span>
-                  <span className="text-[11px] text-blue-100">
-                    ตั้งค่าลำดับการแสดงผลผู้ตรวจบนตาราง, ขนาดตัวอักษร, ซูมคอลัมน์, ปรับแต่งสี, โหมดปากกาแก้ไขสด, Firebase Cloud
+                  <span className="font-bold text-sm text-white">🎨 ปรับแต่งสีและรูปลักษณ์ (Colors & Appearance)</span>
+                  <span className="text-[11px] text-pink-100">
+                    ปรับแต่งสีตัวอักษร, สีพื้นหลัง, ขนาดตัวอักษรทุกส่วน, ความกว้างคอลัมน์, โหมดปากกาแก้ไขข้อความ, คลังข้อความสากล
                   </span>
                 </button>
 
+                {/* Advanced Admin Settings & Detailed Configuration Button */}
                 <button
-                  onClick={() => setAdminTab('settings')}
-                  className="p-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center gap-2.5 hover:border-pink-400 transition-all text-center col-span-2"
+                  onClick={() => setShowAdminSettingsModal(true)}
+                  className="p-4 bg-slate-900 text-white rounded-3xl shadow-sm border border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-800 transition-all text-center col-span-2"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-pink-50 text-pink-600 flex items-center justify-center">
-                    <Icons.Settings />
+                  <div className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center">
+                    <Icons.Settings size={20} />
                   </div>
-                  <span className="font-bold text-xs text-slate-800">ปรับแต่งสีและหน้าตาเว็บไซต์ (UI Customization)</span>
+                  <span className="font-bold text-xs text-white">⚙️ จัดการระบบ Cloud & ความปลอดภัย (Cloud & System)</span>
+                  <span className="text-[10px] text-slate-300">
+                    ตั้งค่า Google Drive Folder, ซิงค์ Cloud Firestore, กู้คืนและสำรองข้อมูล
+                  </span>
                 </button>
               </div>
             )}
@@ -2172,7 +2216,7 @@ export default function App() {
                       onClick={() => setModal({ type: 'inspector_modal' })}
                       className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors shrink-0"
                     >
-                      <Icons.Plus size={14} /> เพิ่มผู้ตรวจ (แบบฟอร์มละเอียด)
+                      <Icons.Plus size={14} /> เพิ่มผู้ตรวจใหม่ (Add Inspector)
                     </button>
                   </div>
                 </div>
@@ -2185,93 +2229,6 @@ export default function App() {
                   <div className="text-[11px] text-slate-600 space-y-0.5 pl-2">
                     <div>• <b>ลำดับคอลัมน์บนตาราง:</b> ผู้ตรวจลำดับที่ 1 จะแสดงเป็นคอลัมน์แรกถัดจากวันที่บนตารางปฏิทิน (เรียง 1 → {inspectors.length} จากซ้ายไปขวา)</div>
                     <div>• <b>Certificate:</b> เมื่อผู้ใช้เลือกผู้ตรวจในหน้าจองคิว ระบบจะกรอง Product Line ตาม Certificate ของผู้ตรวจท่านนั้นๆ ให้ทันที</div>
-                  </div>
-                </div>
-
-                {/* Quick Inline Add Form */}
-                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Icons.Plus className="text-emerald-600" size={14} />
-                      เพิ่มผู้ตรวจใหม่อย่างรวดเร็ว (Quick Add)
-                    </h4>
-                    <span className="text-[10px] text-slate-400">ระบุชื่อและบันทึกได้ทันที</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                    <div className="sm:col-span-4">
-                      <input
-                        type="text"
-                        value={newInsInlineName}
-                        onChange={(e) => setNewInsInlineName(e.target.value)}
-                        placeholder="ชื่อผู้ตรวจ เช่น ณัฐพงศ์..."
-                        className="w-full text-xs p-2 rounded-xl border border-slate-300 font-bold text-slate-800 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            if (!newInsInlineName.trim()) {
-                              setAlertMsg('กรุณากรอกชื่อผู้ตรวจ');
-                              return;
-                            }
-                            const trimmed = newInsInlineName.trim();
-                            if (inspectors.some((ins) => ins.name.toLowerCase() === trimmed.toLowerCase())) {
-                              setAlertMsg(`มีผู้ตรวจชื่อ "${trimmed}" อยู่แล้ว`);
-                              return;
-                            }
-                            const newIns: Inspector = {
-                              name: trimmed,
-                              product_lines: newInsInlineLines.trim() || 'ES1, 3300, 5500, S-villas',
-                              order: inspectors.length + 1,
-                            };
-                            const updated = [...inspectors, newIns].map((item, idx) => ({ ...item, order: idx + 1 }));
-                            setInspectors(updated);
-                            saveInspectorsToStorage(updated);
-                            firestoreSaveInspectors(updated);
-                            logSystem('ADD INSPECTOR', `เพิ่มผู้ตรวจ ${trimmed}`);
-                            setSuccessModal(`เพิ่มผู้ตรวจ "${trimmed}" สำเร็จ`);
-                            setNewInsInlineName('');
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="sm:col-span-6">
-                      <input
-                        type="text"
-                        value={newInsInlineLines}
-                        onChange={(e) => setNewInsInlineLines(e.target.value)}
-                        placeholder="Product Lines เช่น ES1, 3300, 5500, S-villas"
-                        className="w-full text-xs p-2 rounded-xl border border-slate-300 font-medium text-slate-800 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!newInsInlineName.trim()) {
-                            setAlertMsg('กรุณากรอกชื่อผู้ตรวจ');
-                            return;
-                          }
-                          const trimmed = newInsInlineName.trim();
-                          if (inspectors.some((ins) => ins.name.toLowerCase() === trimmed.toLowerCase())) {
-                            setAlertMsg(`มีผู้ตรวจชื่อ "${trimmed}" อยู่ในระบบแล้ว`);
-                            return;
-                          }
-                          const newIns: Inspector = {
-                            name: trimmed,
-                            product_lines: newInsInlineLines.trim() || 'ES1, 3300, 5500, S-villas',
-                            order: inspectors.length + 1,
-                          };
-                          const updated = [...inspectors, newIns].map((item, idx) => ({ ...item, order: idx + 1 }));
-                          setInspectors(updated);
-                          saveInspectorsToStorage(updated);
-                          firestoreSaveInspectors(updated);
-                          logSystem('ADD INSPECTOR', `เพิ่มผู้ตรวจ ${trimmed}`);
-                          setSuccessModal(`เพิ่มผู้ตรวจ "${trimmed}" สำเร็จ พร้อมกำหนด Certificate เรียบร้อย`);
-                          setNewInsInlineName('');
-                        }}
-                        className="w-full h-full min-h-[34px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1 transition-colors"
-                      >
-                        <Icons.Plus size={13} /> เพิ่มทันที
-                      </button>
-                    </div>
                   </div>
                 </div>
 
@@ -2534,58 +2491,25 @@ export default function App() {
               </div>
             )}
 
-            {/* Admin UI Settings Tab */}
-            {adminTab === 'settings' && (
-              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4 animate-pop">
-                <h3 className="text-xs font-bold text-slate-800 border-b border-slate-100 pb-2">
-                  🎨 ตั้งค่าชื่อและสีสันระบบ
-                </h3>
-
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">ชื่อระบบ (App Name)</label>
-                    <input
-                      type="text"
-                      value={settings.appName || ''}
-                      onChange={(e) => setSettings((s) => ({ ...s, appName: e.target.value }))}
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-bold"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block mb-1">สีแถบด้านบน (Header)</label>
-                      <input
-                        type="color"
-                        value={settings.headerBg || '#1e293b'}
-                        onChange={(e) => setSettings((s) => ({ ...s, headerBg: e.target.value }))}
-                        className="w-full h-9 rounded-xl border border-slate-200 cursor-pointer"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block mb-1">สีกิจกรรม (Event)</label>
-                      <input
-                        type="color"
-                        value={settings.eventBg || '#22c55e'}
-                        onChange={(e) => setSettings((s) => ({ ...s, eventBg: e.target.value }))}
-                        className="w-full h-9 rounded-xl border border-slate-200 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      saveSettingsToStorage(settings);
-                      firestoreSaveSettings(settings);
-                      logSystem('UPDATE SETTINGS', 'บันทึกการตั้งค่า UI');
-                      setSuccessModal('บันทึกการตั้งค่าเรียบร้อยแล้ว');
-                    }}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition-all mt-2"
-                  >
-                    บันทึกการตั้งค่า
-                  </button>
-                </div>
-              </div>
+            {/* Admin Appearance & Colors Customization Tab (Requirement 3.1) */}
+            {(adminTab === 'appearance' || adminTab === 'settings') && (
+              <AdminAppearanceSettings
+                settings={settings}
+                onSaveSettings={(newSettings) => {
+                  setSettings(newSettings);
+                  saveSettingsToStorage(newSettings);
+                  firestoreSaveSettings(newSettings);
+                  logSystem('UPDATE APPEARANCE', 'บันทึกการปรับแต่งสีและรูปลักษณ์');
+                  setSuccessModal('บันทึกการปรับแต่งสีและรูปลักษณ์เรียบร้อยแล้ว');
+                }}
+                columnZoom={columnZoom}
+                setColumnZoom={setColumnZoom}
+                tableFontScale={tableFontScale}
+                setTableFontScale={setTableFontScale}
+                onOpenUniversalTextModal={() => setShowUniversalTextModal(true)}
+                onBack={() => setAdminTab('menu')}
+                setAlertMsg={setAlertMsg}
+              />
             )}
           </div>
         )}
@@ -2783,7 +2707,7 @@ export default function App() {
 
       {/* MODALS */}
       {modal?.type === 'booking' && (
-        <div className="backdrop z-[100] p-4 flex items-center justify-center">
+        <div className="backdrop z-[1300] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
           <BookingModal
             data={modal.data}
             inspectors={inspectors}
@@ -2798,7 +2722,7 @@ export default function App() {
       )}
 
       {modal?.type === 'detail' && (
-        <div className="backdrop z-[100] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
+        <div className="backdrop z-[1300] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
           <DetailModal
             booking={modal.data}
             isAdmin={isAdmin}
@@ -2823,25 +2747,62 @@ export default function App() {
       )}
 
       {modal?.type === 'admin_cell_action' && (
-        <div className="backdrop z-[100] p-4 flex items-center justify-center">
+        <div className="backdrop z-[1300] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
           <AdminCellModal
             data={modal.data}
+            role={currentUser?.role}
+            user={currentUser}
+            inspectors={inspectors}
             onClose={() => setModal(null)}
             onBook={() => setModal({ type: 'booking', data: modal.data })}
-            onAddEvent={() => setModal({ type: 'special_modal', specialType: 'events' })}
-            onAddLeave={() => setModal({ type: 'special_modal', specialType: 'leaves' })}
-            onAddHoliday={() => setModal({ type: 'special_modal', specialType: 'holidays' })}
+            onAddEvent={() =>
+              setModal({
+                type: 'special_modal',
+                specialType: 'events',
+                initialDate: modal.data.date,
+                initialInspector: modal.data.inspector_name,
+              })
+            }
+            onAddLeave={() => {
+              const isInspector = currentUser?.role === 'inspector';
+              const myInspectorName = isInspector ? getMyInspectorName(currentUser, inspectors) : '';
+              if (
+                isInspector &&
+                myInspectorName &&
+                modal.data.inspector_name.toLowerCase() !== myInspectorName.toLowerCase()
+              ) {
+                setAlertMsg(
+                  `⚠️ บัญชีของคุณผูกกับสิทธิ์ผู้ตรวจ "${myInspectorName}"\nไม่สามารถจองวันลาให้ผู้ตรวจท่านอื่น (${modal.data.inspector_name}) ได้ ท่านสามารถจองวันลาได้เฉพาะตนเองเท่านั้น`
+                );
+                return;
+              }
+              setModal({
+                type: 'special_modal',
+                specialType: 'leaves',
+                initialDate: modal.data.date,
+                initialInspector: isInspector ? myInspectorName : modal.data.inspector_name,
+              });
+            }}
+            onAddHoliday={() =>
+              setModal({
+                type: 'special_modal',
+                specialType: 'holidays',
+                initialDate: modal.data.date,
+              })
+            }
           />
         </div>
       )}
 
       {modal?.type === 'special_modal' && (
-        <div className="backdrop z-[100] p-4 flex items-center justify-center">
+        <div className="backdrop z-[1300] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
           <SpecialModal
             type={modal.specialType}
             inspectors={inspectors}
             bookings={bookings}
             user={currentUser}
+            initialDate={modal.initialDate}
+            initialInspector={modal.initialInspector}
             onClose={() => setModal(null)}
             onAddSpecial={handleAddSpecial}
             onDeleteBooking={handleDeleteBooking}
@@ -2852,7 +2813,7 @@ export default function App() {
       )}
 
       {modal?.type === 'user_modal' && (
-        <div className="backdrop z-[100] p-4 flex items-center justify-center">
+        <div className="backdrop z-[1300] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
           <UserModal
             user={modal.data}
             isNew={modal.isNew}
@@ -2880,7 +2841,7 @@ export default function App() {
       )}
 
       {modal?.type === 'inspector_modal' && (
-        <div className="backdrop z-[100] p-4 flex items-center justify-center">
+        <div className="backdrop z-[1300] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
           <InspectorModal
             inspector={modal.data}
             onClose={() => setModal(null)}
@@ -2971,8 +2932,8 @@ export default function App() {
 
       {/* Alert Dialog */}
       {alertMsg && (
-        <div className="backdrop z-[600] p-4 flex items-center justify-center">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl animate-pop">
+        <div className="backdrop z-[1400] p-3 sm:p-4 overflow-y-auto flex items-center justify-center">
+          <div className="bg-white w-full max-w-sm rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-center shadow-2xl animate-pop my-auto">
             <div className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <Icons.Alert />
             </div>
@@ -2980,7 +2941,7 @@ export default function App() {
             <p className="text-xs text-slate-600 mb-5 whitespace-pre-line leading-relaxed">{alertMsg}</p>
             <button
               onClick={() => setAlertMsg(null)}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs"
+              className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs cursor-pointer active:scale-95 transition-all"
             >
               รับทราบ
             </button>
@@ -2990,20 +2951,20 @@ export default function App() {
 
       {/* Confirm Dialog */}
       {confirmDialog && (
-        <div className="backdrop z-[600] p-4 flex items-center justify-center">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-pop text-center">
+        <div className="backdrop z-[1400] p-3 sm:p-4 overflow-y-auto flex items-center justify-center">
+          <div className="bg-white w-full max-w-sm rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl animate-pop text-center my-auto">
             <h3 className="text-base font-bold text-slate-800 mb-2">ยืนยันการทำรายการ</h3>
             <div className="text-xs text-slate-600 mb-5 whitespace-pre-line leading-relaxed">{confirmDialog.msg}</div>
             <div className="flex gap-2">
               <button
                 onClick={() => setConfirmDialog(null)}
-                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer active:scale-95 transition-all"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={confirmDialog.onConfirm}
-                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md"
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer active:scale-95 transition-all"
               >
                 ยืนยัน
               </button>
@@ -3048,14 +3009,16 @@ export default function App() {
 
       {/* Cloud & Share Direct URL Modal (FEATURE 3) */}
       {cloudShareOpen && (
-        <CloudShareModal
-          onClose={() => setCloudShareOpen(false)}
-          cloudStatus={cloudStatus}
-          onForceSync={async () => {
-            await seedInitialCloudData();
-            setSuccessModal('ซิงค์ข้อมูล Cloud Firestore สำเร็จแล้ว 100%');
-          }}
-        />
+        <div className="backdrop z-[1400] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
+          <CloudShareModal
+            onClose={() => setCloudShareOpen(false)}
+            cloudStatus={cloudStatus}
+            onForceSync={async () => {
+              await seedInitialCloudData();
+              setSuccessModal('ซิงค์ข้อมูล Cloud Firestore สำเร็จแล้ว 100%');
+            }}
+          />
+        </div>
       )}
 
       {/* SAIS DATABASES Modal Window (Unified Database & Tracking OIL) */}
@@ -3110,6 +3073,21 @@ export default function App() {
           specialFontScale={specialFontScale}
           setSpecialFontScale={setSpecialFontScale}
           onExportJPG={handleExportJPG}
+        />
+      )}
+      {/* Universal Text & Vocabulary Editor Modal (Requirement 4) */}
+      {showUniversalTextModal && (
+        <UniversalTextModal
+          customTexts={settings.customTexts || {}}
+          onSaveTexts={(updated) => {
+            const nextSettings = { ...settings, customTexts: updated };
+            setSettings(nextSettings);
+            saveSettingsToStorage(nextSettings);
+            firestoreSaveSettings(nextSettings);
+            logSystem('UPDATE TEXTS', 'บันทึกการแก้ไขข้อความในคลังข้อความสากล');
+            setSuccessModal('บันทึกข้อความทั้งหมดเรียบร้อยแล้ว');
+          }}
+          onClose={() => setShowUniversalTextModal(false)}
         />
       )}
       </div>

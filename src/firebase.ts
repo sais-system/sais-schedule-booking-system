@@ -10,7 +10,7 @@ import {
   writeBatch,
   enableIndexedDbPersistence,
 } from 'firebase/firestore';
-import { Booking, Inspector, User, WebSettings, SystemNotification, SystemLog, OilTrackingRecord } from './types';
+import { Booking, Inspector, User, WebSettings, SystemNotification, SystemLog, OilTrackingRecord, OilMasterUid } from './types';
 import {
   DEFAULT_INSPECTORS,
   DEFAULT_USERS,
@@ -55,6 +55,7 @@ export const COLLECTIONS = {
   NOTIFICATIONS: 'sais_notifications',
   LOGS: 'sais_logs',
   OIL_TRACKING: 'oil_tracking',
+  OIL_MASTER_UIDS: 'oil_master_uids',
 };
 
 // Connection State Listener
@@ -169,6 +170,23 @@ export const subscribeFirebaseOilTracking = (callback: (records: OilTrackingReco
   );
 };
 
+export const subscribeFirebaseOilMasterUids = (callback: (items: OilMasterUid[]) => void) => {
+  const colRef = collection(firestoreDb, COLLECTIONS.OIL_MASTER_UIDS);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: OilMasterUid[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...(docSnap.data() as Omit<OilMasterUid, 'id'>) });
+      });
+      // Sort alphabetically by UID
+      list.sort((a, b) => (a.uid || '').localeCompare(b.uid || ''));
+      callback(list);
+    },
+    (err) => console.warn('Firestore oil master UIDs sync error:', err)
+  );
+};
+
 export const subscribeFirebaseNotifications = (callback: (notifications: SystemNotification[]) => void) => {
   const colRef = collection(firestoreDb, COLLECTIONS.NOTIFICATIONS);
   return onSnapshot(
@@ -273,6 +291,51 @@ export const firestoreBatchSaveOilRecords = async (records: OilTrackingRecord[])
     updateStatus('connected');
   } catch (err) {
     console.error('Failed to batch save oil records:', err);
+    updateStatus('offline');
+    throw err;
+  }
+};
+
+export const firestoreSaveOilMasterUid = async (item: OilMasterUid): Promise<void> => {
+  try {
+    updateStatus('syncing');
+    const sanitized = sanitizeForFirestore(item);
+    const docRef = doc(firestoreDb, COLLECTIONS.OIL_MASTER_UIDS, sanitized.id);
+    await setDoc(docRef, sanitized, { merge: true });
+    updateStatus('connected');
+  } catch (err) {
+    console.error('Failed to save oil master UID to Firestore:', err);
+    updateStatus('offline');
+    throw err;
+  }
+};
+
+export const firestoreDeleteOilMasterUid = async (id: string): Promise<void> => {
+  try {
+    updateStatus('syncing');
+    const docRef = doc(firestoreDb, COLLECTIONS.OIL_MASTER_UIDS, id);
+    await deleteDoc(docRef);
+    updateStatus('connected');
+  } catch (err) {
+    console.error('Failed to delete oil master UID from Firestore:', err);
+    updateStatus('offline');
+    throw err;
+  }
+};
+
+export const firestoreBatchSaveOilMasterUids = async (items: OilMasterUid[]): Promise<void> => {
+  try {
+    updateStatus('syncing');
+    const batch = writeBatch(firestoreDb);
+    items.forEach((item) => {
+      const sanitized = sanitizeForFirestore(item);
+      const docRef = doc(firestoreDb, COLLECTIONS.OIL_MASTER_UIDS, sanitized.id);
+      batch.set(docRef, sanitized, { merge: true });
+    });
+    await batch.commit();
+    updateStatus('connected');
+  } catch (err) {
+    console.error('Failed to batch save oil master UIDs:', err);
     updateStatus('offline');
     throw err;
   }

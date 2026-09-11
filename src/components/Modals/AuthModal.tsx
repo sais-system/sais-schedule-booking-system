@@ -111,7 +111,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const cardContent = (
-    <div className={`w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 relative ${isGate ? 'my-auto' : 'max-h-[92vh]'}`}>
+    <div className={`w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 relative my-auto ${isGate ? '' : 'max-h-[94dvh]'}`}>
       <div className="h-2 bg-gradient-to-r from-red-600 via-blue-600 to-emerald-600 shrink-0"></div>
       
       {onClose && !isGate && (
@@ -138,20 +138,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         </div>
 
-        {isGate && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-[11px] font-bold mt-1">
-            <Icons.Shield size={12} className="text-blue-600" />
-            <span>ระบบรักษาความปลอดภัยระดับองค์กร (Enterprise Access Gate)</span>
-          </div>
-        )}
-
-        <div className="mt-2 text-xs text-slate-600">
-          {mode === 'login'
-            ? 'ต้องเข้าสู่ระบบก่อน จึงจะสามารถดูตารางคิวงาน แก้ไข หรือจัดการข้อมูลได้'
-            : mode === 'register'
-            ? 'กรอกข้อมูลเพื่อลงทะเบียนผู้ใช้งานระบบ SAIS'
-            : 'ระบุข้อมูลยืนยันตัวตนเพื่อตั้งรหัสผ่านใหม่'}
-        </div>
+        {/* Clean header without unwanted descriptions or enterprise gate badges */}
 
         {/* Tab switchers */}
         <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl mt-3 text-xs font-bold">
@@ -360,41 +347,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       </div>
 
       {/* Card Footer */}
-      <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-500 flex items-center justify-between px-5 shrink-0">
+      <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-500 flex items-center justify-center px-5 shrink-0">
         <span className="flex items-center gap-1 font-mono">
           <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
           Firebase Online
         </span>
-        <span>SAIS Enterprise Pro Max</span>
       </div>
     </div>
   );
 
   if (isGate) {
     return (
-      <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 flex flex-col justify-between items-center p-3 sm:p-6 text-slate-100 overflow-y-auto">
-        <div className="w-full max-w-md flex justify-between items-center py-2 text-xs text-slate-400">
-          <span className="font-bold text-slate-300 flex items-center gap-1.5">
-            <Icons.Shield size={14} className="text-red-500" />
-            Schindler SAIS Thailand
-          </span>
-          <span className="text-[10px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-full border border-slate-700">
-            TLS 1.3 256-Bit SSL
-          </span>
-        </div>
-
+      <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 flex flex-col justify-center items-center p-3 sm:p-6 text-slate-100 overflow-y-auto">
         {cardContent}
-
-        <div className="w-full max-w-md text-center text-[10px] text-slate-500 py-3 space-y-0.5">
-          <div>มาตรฐานความปลอดภัย ISO/IEC 27001 & ข้อมูลเข้ารหัสบน Google Cloud Platform</div>
-          <div>© {new Date().getFullYear()} Schindler Elevator (Thailand) Ltd. All Rights Reserved.</div>
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="backdrop z-[250] p-4 flex items-center justify-center">
+    <div className="backdrop z-[250] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
       {cardContent}
     </div>
   );

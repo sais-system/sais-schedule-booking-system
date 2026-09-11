@@ -93,8 +93,8 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
   };
 
   return (
-    <div className="backdrop z-[500] p-3 sm:p-4">
-      <div className="modal-card p-4 sm:p-6 h-[88vh] flex flex-col bg-white rounded-3xl shadow-2xl relative w-full max-w-xl mx-auto">
+    <div className="backdrop z-[500] p-2 sm:p-4 overflow-y-auto flex items-start sm:items-center justify-center">
+      <div className="modal-card p-3 sm:p-6 max-h-[92dvh] h-auto flex flex-col bg-white rounded-2xl sm:rounded-3xl shadow-2xl relative w-full max-w-xl my-auto">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-full transition-colors cursor-pointer"

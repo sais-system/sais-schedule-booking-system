@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Booking, Inspector, User } from '../../types';
 import { Icons } from '../Icons';
-import { getThaiTime, getLocalDateString } from '../../mockData';
+import { getThaiTime, getLocalDateString, getMyInspectorName } from '../../mockData';
 
 interface SpecialModalProps {
   type: 'leaves' | 'events' | 'holidays';
   inspectors: Inspector[];
   bookings: Booking[];
   user: User | null;
+  initialDate?: string;
+  initialInspector?: string;
   onClose: () => void;
   onAddSpecial: (
     specialType: 'leave' | 'company_event' | 'public_holiday',
@@ -26,15 +28,29 @@ export const SpecialModal: React.FC<SpecialModalProps> = ({
   inspectors,
   bookings,
   user,
+  initialDate,
+  initialInspector,
   onClose,
   onAddSpecial,
   onDeleteBooking,
   onBulkDelete,
   setAlertMsg,
 }) => {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [selectedInspectors, setSelectedInspectors] = useState<string[]>([]);
+  const isInspector = user?.role === 'inspector';
+  const myInspectorName = isInspector ? getMyInspectorName(user, inspectors) : '';
+
+  const [startDate, setStartDate] = useState(initialDate || '');
+  const [endDate, setEndDate] = useState(initialDate || '');
+  const [selectedInspectors, setSelectedInspectors] = useState<string[]>(() => {
+    if (isInspector && type === 'leaves') {
+      return [myInspectorName];
+    }
+    if (initialInspector) return [initialInspector];
+    if (isInspector) {
+      return [myInspectorName];
+    }
+    return [];
+  });
   const [showDropdown, setShowDropdown] = useState(false);
   const [leaveType, setLeaveType] = useState('ลาพักร้อน');
   const [customLeaveType, setCustomLeaveType] = useState('');
@@ -64,7 +80,14 @@ export const SpecialModal: React.FC<SpecialModalProps> = ({
 
   const filteredList = bookings.filter((b) => {
     if (String(b.status) === 'cancelled') return false;
-    if (type === 'leaves') return b.job_type === 'leave';
+    if (type === 'leaves') {
+      if (b.job_type !== 'leave') return false;
+      // If logged in as inspector, show their own leaves
+      if (isInspector && myInspectorName) {
+        return b.inspector_name?.toLowerCase() === myInspectorName.toLowerCase();
+      }
+      return true;
+    }
     if (type === 'events') return b.job_type === 'company_event';
     if (type === 'holidays') return b.job_type === 'public_holiday';
     return false;
@@ -90,16 +113,28 @@ export const SpecialModal: React.FC<SpecialModalProps> = ({
     }
 
     if (type === 'leaves') {
-      if (selectedInspectors.length === 0) {
-        setAlertMsg('กรุณาเลือกพนักงานที่ต้องการบันทึกวันลา');
+      let targets: string[] = [];
+      if (isInspector) {
+        // Strictly lock to self only
+        targets = [myInspectorName];
+      } else {
+        if (selectedInspectors.length === 0) {
+          setAlertMsg('กรุณาเลือกพนักงานที่ต้องการบันทึกวันลา');
+          return;
+        }
+        targets = selectedInspectors.includes('ALL') ? inspectors.map((i) => i.name) : selectedInspectors;
+      }
+
+      if (targets.length === 0 || !targets[0]) {
+        setAlertMsg('กรุณาระบุชื่อผู้ตรวจที่ต้องการบันทึกวันลา');
         return;
       }
+
       const title = leaveType === 'อื่นๆ' ? customLeaveType : leaveType;
       if (!title) {
         setAlertMsg('กรุณาระบุประเภทการลา');
         return;
       }
-      const targets = selectedInspectors.includes('ALL') ? inspectors.map((i) => i.name) : selectedInspectors;
       onAddSpecial('leave', datesToCreate, targets, title);
     } else if (type === 'events') {
       if (!eventName.trim()) {
@@ -122,13 +157,17 @@ export const SpecialModal: React.FC<SpecialModalProps> = ({
     // Reset fields
     setStartDate('');
     setEndDate('');
-    setSelectedInspectors([]);
+    setSelectedInspectors(isInspector && type === 'leaves' ? [myInspectorName] : []);
     setEventName('');
     setHolidayName('');
   };
 
   const titles = {
-    leaves: { title: 'จัดการวันลาพนักงาน', bg: 'bg-amber-500', icon: <Icons.User /> },
+    leaves: {
+      title: user?.role === 'inspector' ? 'เพิ่มวันลา (Leave)' : 'จัดการวันลาพนักงาน',
+      bg: 'bg-amber-500',
+      icon: <Icons.User />,
+    },
     events: { title: 'จัดการกิจกรรมบริษัท', bg: 'bg-emerald-600', icon: <Icons.Star /> },
     holidays: { title: 'จัดการวันหยุดบริษัท', bg: 'bg-red-600', icon: <Icons.CalendarX /> },
   };
@@ -156,58 +195,78 @@ export const SpecialModal: React.FC<SpecialModalProps> = ({
 
           {type === 'leaves' && (
             <>
-              <div className="relative">
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">เลือกผู้ตรวจ / พนักงาน</label>
-                <div
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="w-full p-2.5 text-xs border border-slate-300 rounded-xl bg-slate-50 font-bold cursor-pointer flex justify-between items-center"
-                >
-                  <span className="truncate text-slate-700">
-                    {selectedInspectors.length === 0
-                      ? '-- กรุณาเลือก --'
-                      : selectedInspectors.includes('ALL')
-                      ? 'ทุกคนในบริษัท'
-                      : selectedInspectors.join(', ')}
-                  </span>
-                  <span className="text-slate-400 text-xs">▼</span>
+              {isInspector ? (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                    ผู้ตรวจ / พนักงาน <span className="text-amber-600 font-normal">(จองได้เฉพาะตนเองเท่านั้น)</span>
+                  </label>
+                  <div className="w-full p-2.5 text-xs border border-amber-300 rounded-xl bg-amber-50/90 font-bold flex justify-between items-center select-none shadow-2xs">
+                    <div className="flex items-center gap-2 text-amber-950 min-w-0">
+                      <span className="text-amber-600 shrink-0">🔒</span>
+                      <span className="truncate font-black text-xs">{myInspectorName || user?.full_name || user?.username}</span>
+                      <span className="text-[10px] text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full font-bold shrink-0">
+                        ไอดีผูกสิทธิ์
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-amber-800 bg-white/80 border border-amber-200 px-2 py-0.5 rounded-md font-semibold shrink-0">
+                      จองได้เฉพาะตนเอง
+                    </span>
+                  </div>
                 </div>
+              ) : (
+                <div className="relative">
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">เลือกผู้ตรวจ / พนักงาน</label>
+                  <div
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="w-full p-2.5 text-xs border border-slate-300 rounded-xl bg-slate-50 font-bold cursor-pointer flex justify-between items-center"
+                  >
+                    <span className="truncate text-slate-700">
+                      {selectedInspectors.length === 0
+                        ? '-- กรุณาเลือก --'
+                        : selectedInspectors.includes('ALL')
+                        ? 'ทุกคนในบริษัท'
+                        : selectedInspectors.join(', ')}
+                    </span>
+                    <span className="text-slate-400 text-xs">▼</span>
+                  </div>
 
-                {showDropdown && (
-                  <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1">
-                    <label className="flex items-center gap-2 p-2 hover:bg-amber-50 rounded-lg cursor-pointer border-b border-slate-100 text-xs font-bold text-amber-900">
-                      <input
-                        type="checkbox"
-                        checked={selectedInspectors.includes('ALL')}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedInspectors(['ALL']);
-                          else setSelectedInspectors([]);
-                        }}
-                        className="accent-amber-500 w-4 h-4"
-                      />
-                      <span>ทุกคน</span>
-                    </label>
-                    {inspectors.map((ins) => (
-                      <label key={ins.name} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-bold text-slate-700">
+                  {showDropdown && (
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1">
+                      <label className="flex items-center gap-2 p-2 hover:bg-amber-50 rounded-lg cursor-pointer border-b border-slate-100 text-xs font-bold text-amber-900">
                         <input
                           type="checkbox"
-                          checked={selectedInspectors.includes(ins.name)}
+                          checked={selectedInspectors.includes('ALL')}
                           onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedInspectors((prev) =>
-                                prev.includes('ALL') ? [ins.name] : [...prev, ins.name]
-                              );
-                            } else {
-                              setSelectedInspectors((prev) => prev.filter((n) => n !== ins.name));
-                            }
+                            if (e.target.checked) setSelectedInspectors(['ALL']);
+                            else setSelectedInspectors([]);
                           }}
                           className="accent-amber-500 w-4 h-4"
                         />
-                        <span>{ins.name}</span>
+                        <span>ทุกคน</span>
                       </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      {inspectors.map((ins) => (
+                        <label key={ins.name} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-bold text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={selectedInspectors.includes(ins.name)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedInspectors((prev) =>
+                                  prev.includes('ALL') ? [ins.name] : [...prev, ins.name]
+                                );
+                              } else {
+                                setSelectedInspectors((prev) => prev.filter((n) => n !== ins.name));
+                              }
+                            }}
+                            className="accent-amber-500 w-4 h-4"
+                          />
+                          <span>{ins.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-bold text-slate-500 block mb-1">ประเภทการลา</label>

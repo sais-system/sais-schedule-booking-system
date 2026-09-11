@@ -1,10 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { OilTrackingRecord, OilItem } from '../../types';
+import { OilTrackingRecord, OilItem, OilMasterUid, OilVersionHistory } from '../../types';
 import { Icons } from '../Icons';
 import { extractTextFromPdf, parseOilPdfText, mergeOilResults } from '../../utils/pdfOilParser';
+import { mergeOilVersions } from '../../utils/oilSlaHelper';
 
 interface OilUploadModalProps {
   existingRecord?: OilTrackingRecord | null;
+  masterList?: OilMasterUid[];
+  allExistingRecords?: OilTrackingRecord[];
   onClose: () => void;
   onParsedSuccess: (data: {
     equipmentNo: string;
@@ -17,11 +20,15 @@ interface OilUploadModalProps {
     customerFilename?: string;
     existingRecordId?: string;
     bookingId?: string;
+    version?: string;
+    version_history?: OilVersionHistory[];
   }) => void;
 }
 
 export const OilUploadModal: React.FC<OilUploadModalProps> = ({
   existingRecord,
+  masterList,
+  allExistingRecords = [],
   onClose,
   onParsedSuccess,
 }) => {
@@ -85,20 +92,20 @@ export const OilUploadModal: React.FC<OilUploadModalProps> = ({
       if (installerFile) {
         setProcessStep('กำลังอ่านข้อความจากไฟล์ Installer PDF...');
         const installerText = await extractTextFromPdf(installerFile);
-        installerResult = parseOilPdfText(installerText, 'Installer');
+        installerResult = parseOilPdfText(installerText, 'Installer', masterList);
       }
 
       // 2. Process Customer PDF
       if (customerFile) {
         setProcessStep('กำลังอ่านข้อความจากไฟล์ Customer PDF...');
         const customerText = await extractTextFromPdf(customerFile);
-        customerResult = parseOilPdfText(customerText, 'Customer');
+        customerResult = parseOilPdfText(customerText, 'Customer', masterList);
       }
 
       setProcessStep('กำลังรวมรายการปัญหา (Merging Problem List)...');
 
       // 3. Merge both results
-      const merged = mergeOilResults(installerResult, customerResult);
+      const merged = mergeOilResults(installerResult, customerResult, masterList);
 
       // Pre-fill from existing record if fields were empty
       const finalEquipmentNo = merged.equipmentNo || existingRecord?.equipment_no || '';
@@ -106,6 +113,47 @@ export const OilUploadModal: React.FC<OilUploadModalProps> = ({
       const finalInspector = merged.inspectorName || existingRecord?.inspector_name || '';
       const finalSupervisor = merged.supervisor || existingRecord?.supervisor || '';
       const finalDate = merged.inspectionDate || existingRecord?.inspection_date || '';
+
+      // Check if there is an existing record to handle Version Control (V.0 -> V.1)
+      const targetExisting =
+        existingRecord ||
+        allExistingRecords.find(
+          (r) => r.equipment_no.trim() === finalEquipmentNo.trim() && r.equipment_no.trim() !== ''
+        );
+
+      let finalItems = merged.items;
+      let finalVersion = targetExisting?.version || 'V.0';
+      let versionHistory = targetExisting?.version_history || [];
+
+      if (targetExisting && targetExisting.items && targetExisting.items.length > 0) {
+        setProcessStep('กำลังประมวลผล Version Control (เปรียบเทียบ V.0 -> V.1)...');
+        const currentVerNum =
+          parseInt((targetExisting.version || 'V.0').replace(/\D/g, ''), 10) || 0;
+        finalVersion = `V.${currentVerNum + 1}`;
+
+        const prevInspectionDate = targetExisting.inspection_date || finalDate;
+        const versionMergeResult = mergeOilVersions(
+          targetExisting.items,
+          merged.items,
+          prevInspectionDate,
+          finalDate
+        );
+
+        finalItems = versionMergeResult.mergedItems;
+
+        const newHistoryEntry: OilVersionHistory = {
+          version: finalVersion,
+          uploaded_at: new Date().toISOString(),
+          inspection_date: finalDate,
+          items_count: finalItems.length,
+          closed_in_sap_count: versionMergeResult.closedInSapCount,
+          new_items_count: versionMergeResult.newItemsCount,
+          retained_items_count: versionMergeResult.retainedCount,
+          notes: `อัปเดตไฟล์ตรวจ ${finalVersion} • ปิดใน SAP: ${versionMergeResult.closedInSapCount} ข้อ • รายการใหม่: ${versionMergeResult.newItemsCount} ข้อ`,
+        };
+
+        versionHistory = [...versionHistory, newHistoryEntry];
+      }
 
       // Release file references from state immediately so memory is freed and no PDF is kept in the system
       const instFilename = installerFile?.name;
@@ -120,11 +168,13 @@ export const OilUploadModal: React.FC<OilUploadModalProps> = ({
         inspectorName: finalInspector,
         supervisor: finalSupervisor,
         inspectionDate: finalDate,
-        items: merged.items,
+        items: finalItems,
         installerFilename: instFilename,
         customerFilename: custFilename,
-        existingRecordId: existingRecord?.id,
-        bookingId: existingRecord?.booking_id,
+        existingRecordId: targetExisting?.id || existingRecord?.id,
+        bookingId: targetExisting?.booking_id || existingRecord?.booking_id,
+        version: finalVersion,
+        version_history: versionHistory,
       });
     } catch (err: any) {
       console.error('Error processing PDFs:', err);
@@ -147,19 +197,19 @@ export const OilUploadModal: React.FC<OilUploadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[550] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto animate-fade-in">
-      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto">
+    <div className="fixed inset-0 z-[550] flex items-start sm:items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto animate-fade-in">
+      <div className="bg-white w-full max-w-2xl rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[94dvh]">
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-red-950 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-red-600/30 border border-red-500/40 flex items-center justify-center text-red-400">
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-red-950 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-red-600/30 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
               <Icons.Upload size={20} />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-white">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-lg font-black text-white truncate">
                 อัปโหลดไฟล์ PDF Open Item List (OIL)
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 truncate">
                 {existingRecord
                   ? `สำหรับงาน Equipment No: ${existingRecord.equipment_no} (${existingRecord.site_name})`
                   : 'อัปโหลดเอกสาร PDF 2 ไฟล์พร้อมกันเพื่อดึงข้อมูลเข้าระบบอัตโนมัติ'}
@@ -169,7 +219,7 @@ export const OilUploadModal: React.FC<OilUploadModalProps> = ({
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer transition-colors shrink-0 ml-2"
           >
             <Icons.X size={16} />
           </button>
@@ -179,7 +229,7 @@ export const OilUploadModal: React.FC<OilUploadModalProps> = ({
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDualDrop}
-          className="p-4 sm:p-6 space-y-4 bg-slate-50"
+          className="p-4 sm:p-6 space-y-4 bg-slate-50 overflow-y-auto max-h-[calc(94dvh-130px)] custom-scrollbar"
         >
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-xs flex items-center gap-2">
@@ -197,10 +247,26 @@ export const OilUploadModal: React.FC<OilUploadModalProps> = ({
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full border border-emerald-200">ไม่จัดเก็บไฟล์ PDF</span>
               </div>
               <p className="text-blue-700 leading-relaxed text-[11px]">
-                เมื่อสกัดข้อความเสร็จสิ้น ระบบจะไม่จัดเก็บไฟล์ PDF ไว้ในเซิร์ฟเวอร์หรือฐานข้อมูล เอาเฉพาะข้อความที่สกัดได้เท่านั้น โดยสกัดเฉพาะข้อความใน <b>Annotations Comment</b> อย่างถูกต้องแม่นยำ ไม่เกินขอบเขต
+                สกัดเฉพาะข้อความใน <b>Annotations Comment</b> และตรวจสอบสัญลักษณ์ 🔺 (7 วัน) / 🟥 (28 วัน) เทียบกับ Master Data
               </p>
             </div>
           </div>
+
+          {/* Version Control Notice */}
+          {existingRecord && existingRecord.items && existingRecord.items.length > 0 && (
+            <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-2xl flex items-start gap-3">
+              <Icons.RefreshCw size={18} className="text-purple-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-purple-900 space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-black">ระบบ Version Control ({existingRecord.version || 'V.0'} ➔ V.{(parseInt((existingRecord.version || 'V.0').replace(/\D/g, ''), 10) || 0) + 1})</span>
+                  <span className="px-2 py-0.2 rounded-full bg-purple-200 text-purple-800 text-[10px] font-bold">เปิดใช้งานอัตโนมัติ</span>
+                </div>
+                <p className="text-purple-700 text-[11px] leading-relaxed">
+                  หาก UID ใดในเวอร์ชันเดิมไม่มีอยู่ใน PDF ใหม่ ระบบจะเปลี่ยนสถานะเป็น <b>"Closed in SAP"</b> อัตโนมัติ และ UID ที่ยังอยู่จะ<b>คงนับวัน SLA ต่อเนื่องจากวันตรวจแรก</b> ไม่เริ่มนับใหม่
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Dual Upload Boxes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -240,15 +240,17 @@ export const CalendarGrid: React.FC<CalendarGridProps> = React.memo(({
                     onClick={() => {
                       if (!user) return setAlertMsg('กรุณาเข้าสู่ระบบก่อนทำรายการจองคิวตรวจครับ');
                       if (user.role === 'viewer') return setAlertMsg('บัญชีของคุณมีสิทธิ์เข้าชมเท่านั้น ไม่สามารถเพิ่มคิวงานได้');
-                      if (!isAdmin && isBlockedForNormalUser) return;
+                      const isInspector = user.role === 'inspector';
+                      if (!isAdmin && !isInspector && isBlockedForNormalUser) return;
+                      if (isInspector && d.isGlobalHoliday) return setAlertMsg('วันที่เลือกเป็นวันหยุดบริษัท');
 
                       if (isPastDate && !isAdmin) {
                         return setAlertMsg(
-                          '⚠️ ไม่สามารถลงจองคิวตรวจย้อนหลังได้ (ก่อนวันที่ปัจจุบัน)\nเฉพาะสิทธิ์ Admin เท่านั้นที่สามารถลงคิวตรวจ วันลา กิจกรรม หรือวันหยุดย้อนหลังได้ เพื่อเป็นข้อมูลอัปเดตและบันทึกย้อนหลัง'
+                          '⚠️ ไม่สามารถลงจองคิวตรวจหรือเพิ่มวันลาย้อนหลังได้ (ก่อนวันที่ปัจจุบัน)\nเฉพาะสิทธิ์ Admin เท่านั้นที่สามารถลงคิวตรวจ วันลา กิจกรรม หรือวันหยุดย้อนหลังได้ เพื่อเป็นข้อมูลอัปเดตและบันทึกย้อนหลัง'
                         );
                       }
 
-                      if (isAdmin) {
+                      if (isAdmin || isInspector) {
                         setModal({ type: 'admin_cell_action', data: { date: d.full, inspector_name: ins.name } });
                       } else {
                         setQuickAddType('job');

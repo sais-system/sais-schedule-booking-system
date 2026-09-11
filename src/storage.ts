@@ -1,5 +1,6 @@
-import { Booking, Inspector, User, WebSettings, SystemNotification, SystemLog, OilTrackingRecord } from './types';
+import { Booking, Inspector, User, WebSettings, SystemNotification, SystemLog, OilTrackingRecord, OilMasterUid } from './types';
 import { DEFAULT_INSPECTORS, DEFAULT_USERS, DEFAULT_SETTINGS, generateDefaultBookings, DEFAULT_NOTIFICATIONS, DEFAULT_LOGS, getThaiTime } from './mockData';
+import { DEFAULT_OIL_MASTER_UIDS } from './utils/oilSlaHelper';
 
 const STORAGE_KEYS = {
   BOOKINGS: 'sais_bookings_v2',
@@ -12,6 +13,7 @@ const STORAGE_KEYS = {
   REMEMBER_TIME: 'sais_remember_time',
   SESSION_USER: 'sais_session_user',
   OIL_TRACKING: 'sais_oil_tracking_v1',
+  OIL_MASTER_UIDS: 'sais_oil_master_uids_v1',
 };
 
 // 24 hours in milliseconds
@@ -216,4 +218,25 @@ export const saveOilRecordsToStorage = (records: OilTrackingRecord[]) => {
     console.warn('Failed to save oil records to localStorage:', e);
   }
 };
+
+export const loadOilMasterUidsFromStorage = (): OilMasterUid[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.OIL_MASTER_UIDS);
+    if (!raw) return DEFAULT_OIL_MASTER_UIDS;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_OIL_MASTER_UIDS;
+  } catch (e) {
+    console.warn('Failed to load oil master UIDs from localStorage:', e);
+    return DEFAULT_OIL_MASTER_UIDS;
+  }
+};
+
+export const saveOilMasterUidsToStorage = (items: OilMasterUid[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.OIL_MASTER_UIDS, JSON.stringify(items));
+  } catch (e) {
+    console.warn('Failed to save oil master UIDs to localStorage:', e);
+  }
+};
+
 

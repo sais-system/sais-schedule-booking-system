@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'inspector' | 'user' | 'viewer';
+export type UserRole = 'admin' | 'inspector' | 'user' | 'viewer' | 'supervisor' | 'fitter';
 export type UserStatus = 'approved' | 'pending' | 'blocked';
 
 export interface User {
@@ -41,6 +41,8 @@ export interface Booking {
   status?: 'active' | 'cancelled' | string;
   sais_status?: string;
   inspection_result?: string; // e.g. "pass with OIL", "pass", "fail"
+  sais_result_file?: string;
+  sais_result_filename?: string;
   condition?: string;
   pre_check?: string;
   buzzer?: string;
@@ -129,12 +131,24 @@ export interface WebSettings {
   fontDateHeader?: number;
   fontInspectorHeader?: number;
   cardMinHeight?: number;
+  navBg?: string;
+  navActiveColor?: string;
+  navInactiveColor?: string;
+  fontNavText?: number;
+  modalBg?: string;
+  modalText?: string;
+  fontModalScale?: number;
+  columnZoom?: number;
+  tableFontScale?: number;
+  isLiveEdit?: boolean;
 
-  // Google Drive Cloud Storage (15GB free tier integration)
+  // Google Drive Cloud Storage (Separated 2 Accounts: 15GB + 15GB = 30GB Total Free Tier)
   gdriveRootFolderId?: string;
   gdriveRootFolderUrl?: string;
+  gdriveRootAccountEmail?: string;
   gdriveOilFolderId?: string;
   gdriveOilFolderUrl?: string;
+  gdriveOilAccountEmail?: string;
   gdriveAutoOrganizeByProject?: boolean;
   gdriveApiKey?: string;
   gdriveClientId?: string;
@@ -176,13 +190,24 @@ export interface DayInfo {
 // Tracking OIL (Open Item List) System Types
 // ----------------------------------------------------
 export type OilSource = 'Installer' | 'Customer' | 'Manual';
-export type OilItemStatus = 'Open' | 'In Progress' | 'Fixed' | 'Verified';
+export type OilItemStatus = 'Open' | 'In Progress' | 'Request Close' | 'Fixed' | 'Verified' | 'Closed in SAP';
 export type OilTrackingStatus = 'Waiting for PDF' | 'OIL Recorded' | 'In Progress' | 'Completed' | 'Cancelled';
+
+export interface OilMasterUid {
+  id: string;
+  uid: string; // e.g. '2.14.1.b', '3.4.19', '11.13.2.a'
+  item_type: 'triangle' | 'square'; // Triangle (△) = 7 days vs Square (□) = 28 days
+  sla_days: number; // 7 or 28
+  description?: string;
+  category?: string;
+  updated_at?: string;
+  updated_by?: string;
+}
 
 export interface OilItem {
   id: string;
   uid: string; // e.g. '2.14.1.b', '3.4.19', '11.13.2.a'
-  item_type?: 'triangle' | 'square'; // Triangle (△) vs Square (□) defect mark
+  item_type?: 'triangle' | 'square'; // Triangle (△) 7 days vs Square (□) 28 days defect mark
   source: OilSource;
   title?: string; // Item question or section heading
   description: string; // Annotations Comment details
@@ -190,13 +215,53 @@ export interface OilItem {
   responsible?: string; // Fitter / Installer / Customer / Schindler
   created_at?: string;
   notes?: string;
+
+  // SLA Fields
+  sla_days?: number; // 7 (triangle) or 28 (square)
+  sla_due_date?: string; // Target due date calculated from first_inspection_date
+  first_inspection_date?: string; // Preserves original V.0 inspection date across versions!
+
+  // Versioning & Closure
+  version_introduced?: number; // 0 for V.0, 1 for V.1
+  closed_at?: string;
+  closed_in_version?: number;
+
+  // Supervisor & Fitter Actions
+  fixed_by?: string; // User full name or username who uploaded fix
+  fixed_role?: string; // 'supervisor' | 'fitter' | 'admin'
+  fixed_at?: string;
+  fix_photos?: string[]; // URLs or base64 data URLs of resolved defect photos
+  fix_notes?: string;
+  verified_by?: string;
+  verified_at?: string;
+}
+
+export interface OilVersionHistory {
+  version: number | string;
+  upload_date?: string;
+  uploaded_at?: string;
+  inspection_date: string;
+  installer_filename?: string;
+  customer_filename?: string;
+  total_items?: number;
+  items_count?: number;
+  closed_items?: number;
+  closed_in_sap_count?: number;
+  pending_items?: number;
+  new_items_count?: number;
+  retained_items_count?: number;
+  notes?: string;
+  uploaded_by?: string;
 }
 
 export interface OilTrackingRecord {
   id: string;
   equipment_no: string;
   site_name: string;
-  inspection_date: string; // DD/MM/YYYY or YYYY-MM-DD
+  inspection_date: string; // Current inspection date (DD/MM/YYYY or YYYY-MM-DD)
+  first_inspection_date?: string; // Original V.0 date (SLA never resets across versions!)
+  version?: number; // 0, 1, 2...
+  version_history?: OilVersionHistory[];
   inspector_name?: string;
   supervisor?: string;
   status: OilTrackingStatus;

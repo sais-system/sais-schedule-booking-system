@@ -176,8 +176,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fade">
-      <div className="w-full max-w-lg bg-slate-900 text-white rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] border border-slate-700">
+    <div className="fixed inset-0 z-[1400] flex items-start sm:items-center justify-center p-2 sm:p-3 bg-black/80 backdrop-blur-sm animate-fade overflow-y-auto">
+      <div className="w-full max-w-lg bg-slate-900 text-white rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[94dvh] border border-slate-700">
         {/* Header */}
         <div className="px-4 py-3 bg-slate-800/90 border-b border-slate-700/80 flex items-center justify-between">
           <div className="flex items-center gap-2">

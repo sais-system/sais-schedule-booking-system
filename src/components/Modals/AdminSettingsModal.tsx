@@ -1183,11 +1183,16 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 border-2 border-emerald-300 space-y-2.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                    <Icons.Cloud size={16} className="text-emerald-600" />
-                    การเชื่อมต่อ Google Drive จัดเก็บไฟล์ PDF & รูปภาพ
-                  </h4>
-                  <div className="flex items-center gap-2">
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Icons.Cloud size={16} className="text-emerald-600" />
+                      การเชื่อมต่อ Google Drive แยก 2 บัญชีอิสระ (พื้นที่ฟรี 15 GB + 15 GB = 30 GB)
+                    </h4>
+                    <span className="text-[10px] text-emerald-800">
+                      แยกบัญชีจัดเก็บไฟล์ PDF/รูปภาพหน้างาน กับ รายงาน OIL Installer & Customer เพื่อเพิ่มพื้นที่และความเป็นระเบียบ
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
                     {isGdriveLocked ? (
                       <span className="text-[10px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-bold flex items-center gap-1 border border-red-200">
                         🔒 ป้องกันการแก้ไข (Locked)
@@ -1199,10 +1204,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                     )}
                   </div>
                 </div>
-                <p className="text-[11px] text-emerald-900 leading-relaxed">
-                  ระบุ Google Drive Folder ID เพื่อจัดเก็บไฟล์เอกสารแนบ PDF (Open Item List, Floor Plan, Pre-check) และรูปภาพหน้างานทั้งหมดอย่างปลอดภัย
-                  ต้องใส่รหัสผ่านผู้ดูแลระบบก่อนดูค่าและแก้ไขเพื่อความปลอดภัยสูงสุด
-                </p>
 
                 <div className="pt-2 flex flex-wrap gap-2 items-center">
                   {isGdriveLocked ? (
@@ -1226,109 +1227,218 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       <Icons.Check size={14} /> ล็อกการตั้งค่าความปลอดภัยทันที
                     </button>
                   )}
-
-                  {formData.gdriveRootFolderId && !isGdriveLocked && (
-                    <a
-                      href={`https://drive.google.com/drive/folders/${formData.gdriveRootFolderId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs active:scale-95 transition-all"
-                    >
-                      <Icons.ExternalLink size={14} /> เปิดโฟลเดอร์ใน Google Drive
-                    </a>
-                  )}
                 </div>
               </div>
 
-              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-                    {isGdriveLocked && <span>🔒</span>} Google Drive Folder ID (สำหรับจัดเก็บ PDF และรูปภาพ):
-                  </label>
-                  <input
-                    type={isGdriveLocked ? "password" : "text"}
-                    disabled={isGdriveLocked}
-                    readOnly={isGdriveLocked}
-                    value={isGdriveLocked ? '••••••••••••••••••••••••••••••••' : (formData.gdriveRootFolderId || '')}
-                    onChange={(e) => setFormData({ ...formData, gdriveRootFolderId: e.target.value.trim() })}
-                    placeholder="เช่น 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OIv524"
-                    className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
-                      isGdriveLocked
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
-                        : 'bg-white text-slate-800 font-bold border-emerald-500 focus:ring-2 focus:ring-emerald-500'
-                    }`}
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    💡 คัดลอก Folder ID จาก URL ใน Google Drive เช่น drive.google.com/drive/folders/<b>[FOLDER_ID]</b>
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-                    {isGdriveLocked && <span>🔒</span>} Google Drive Web URL สำรอง:
-                  </label>
-                  <input
-                    type={isGdriveLocked ? "password" : "text"}
-                    disabled={isGdriveLocked}
-                    readOnly={isGdriveLocked}
-                    value={isGdriveLocked ? '••••••••••••••••••••••••••••••••••••••••' : (formData.gdriveRootFolderUrl || '')}
-                    onChange={(e) => setFormData({ ...formData, gdriveRootFolderUrl: e.target.value })}
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
-                      isGdriveLocked
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
-                        : 'bg-white text-slate-800 font-bold border-emerald-500 focus:ring-2 focus:ring-emerald-500'
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-                    {isGdriveLocked && <span>🔒</span>} โฟลเดอร์เฉพาะสำหรับจัดเก็บ OIL Reports & Checklists (Oil Folder ID):
-                  </label>
-                  <input
-                    type={isGdriveLocked ? "password" : "text"}
-                    disabled={isGdriveLocked}
-                    readOnly={isGdriveLocked}
-                    value={isGdriveLocked ? '••••••••••••••••••••••••••••••••' : (formData.gdriveOilFolderId || '')}
-                    onChange={(e) => setFormData({ ...formData, gdriveOilFolderId: e.target.value.trim() })}
-                    placeholder="เช่น 1_SAIS_OIL_TRACKING_DOCS_ROOT (เว้นว่างเพื่อใช้ Folder หลัก)"
-                    className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
-                      isGdriveLocked
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
-                        : 'bg-white text-slate-800 font-bold border-indigo-500 focus:ring-2 focus:ring-indigo-500'
-                    }`}
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    📁 ระบุ Folder ID สำหรับแยกจัดเก็บรายงาน Open Item List (OIL) PDF และรายงานผลตรวจสอบลิฟต์โดยเฉพาะ
-                  </p>
-                </div>
-
-                <div className="pt-2 border-t border-slate-200">
-                  <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
-                    <input
-                      type="checkbox"
-                      disabled={isGdriveLocked}
-                      checked={formData.gdriveAutoOrganizeByProject ?? true}
-                      onChange={(e) =>
-                        setFormData({ ...formData, gdriveAutoOrganizeByProject: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded text-emerald-600"
-                    />
-                    <span>สร้างโฟลเดอร์ย่อยแยกตามชื่องาน / รหัสงาน (Auto-categorize by Project)</span>
-                  </label>
-                </div>
-
-                <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200 text-emerald-900 space-y-1">
-                  <span className="font-bold text-[11px] flex items-center gap-1">
-                    <Icons.CheckCircle size={13} className="text-emerald-600" />
-                    ประโยชน์ของการเชื่อมต่อ Google Drive:
-                  </span>
-                  <div className="text-[10px] text-emerald-800 space-y-0.5 pl-3">
-                    <div>• ไฟล์ PDF Open Item List, Floor Plan, Pre-check และรูปถ่ายหน้างานจะถูกส่งเข้าโฟลเดอร์นี้โดยตรง</div>
-                    <div>• วิศวกรและผู้ตรวจสามารถเปิดดูเอกสารย้อนหลังได้จากตารางคิวตรวจและระบบ Tracking OIL ตลอด 24 ชม.</div>
-                    <div>• ป้องกันข้อมูลสูญหายและประหยัดพื้นที่เซิร์ฟเวอร์</div>
+              {/* ACCOUNT 1: GENERAL PDF & SITE PHOTOS (15 GB FREE) */}
+              <div className="space-y-3 bg-white p-4 rounded-2xl border-2 border-emerald-200 shadow-xs text-xs">
+                <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs">
+                      1
+                    </span>
+                    <div>
+                      <h5 className="font-bold text-slate-800 text-xs">
+                        บัญชีที่ 1: จัดเก็บไฟล์ PDF ทั่วไป และรูปภาพหน้างาน
+                      </h5>
+                      <span className="text-[10px] text-slate-500">
+                        Floor Plan, Drawing, แบบแปลน, Pre-check PDF, รูปบ่อลิฟต์, รูปถ่ายสภาพหน้างาน
+                      </span>
+                    </div>
                   </div>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px]">
+                    ความจุฟรี 15 GB
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                      {isGdriveLocked && <span>🔒</span>} บัญชี / อีเมล Google Account 1:
+                    </label>
+                    <input
+                      type={isGdriveLocked ? "password" : "text"}
+                      disabled={isGdriveLocked}
+                      readOnly={isGdriveLocked}
+                      value={isGdriveLocked ? '••••••••••••••••••••••••' : (formData.gdriveRootAccountEmail || '')}
+                      onChange={(e) => setFormData({ ...formData, gdriveRootAccountEmail: e.target.value.trim() })}
+                      placeholder="เช่น sais.site.docs@gmail.com"
+                      className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                        isGdriveLocked
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none'
+                          : 'bg-white text-slate-800 font-bold border-emerald-500 focus:ring-2 focus:ring-emerald-500'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                      {isGdriveLocked && <span>🔒</span>} Google Drive Folder ID (สำหรับ PDF และรูปภาพ):
+                    </label>
+                    <input
+                      type={isGdriveLocked ? "password" : "text"}
+                      disabled={isGdriveLocked}
+                      readOnly={isGdriveLocked}
+                      value={isGdriveLocked ? '••••••••••••••••••••••••••••••••' : (formData.gdriveRootFolderId || '')}
+                      onChange={(e) => setFormData({ ...formData, gdriveRootFolderId: e.target.value.trim() })}
+                      placeholder="เช่น 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OIv524"
+                      className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                        isGdriveLocked
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
+                          : 'bg-white text-slate-800 font-bold border-emerald-500 focus:ring-2 focus:ring-emerald-500'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                    {isGdriveLocked && <span>🔒</span>} Google Drive Web URL บัญชีที่ 1:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type={isGdriveLocked ? "password" : "text"}
+                      disabled={isGdriveLocked}
+                      readOnly={isGdriveLocked}
+                      value={isGdriveLocked ? '••••••••••••••••••••••••••••••••••••••••' : (formData.gdriveRootFolderUrl || '')}
+                      onChange={(e) => setFormData({ ...formData, gdriveRootFolderUrl: e.target.value })}
+                      placeholder="https://drive.google.com/drive/folders/..."
+                      className={`flex-1 text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                        isGdriveLocked
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
+                          : 'bg-white text-slate-800 font-bold border-emerald-500 focus:ring-2 focus:ring-emerald-500'
+                      }`}
+                    />
+                    {formData.gdriveRootFolderId && !isGdriveLocked && (
+                      <a
+                        href={`https://drive.google.com/drive/folders/${formData.gdriveRootFolderId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1 shrink-0"
+                      >
+                        <Icons.ExternalLink size={14} /> เปิดโฟลเดอร์
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ACCOUNT 2: OIL TRACKING REPORTS (INSTALLER & CUSTOMER) (15 GB FREE) */}
+              <div className="space-y-3 bg-white p-4 rounded-2xl border-2 border-indigo-200 shadow-xs text-xs">
+                <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
+                      2
+                    </span>
+                    <div>
+                      <h5 className="font-bold text-slate-800 text-xs">
+                        บัญชีที่ 2: จัดเก็บไฟล์ OIL Installer & Customer โดยเฉพาะ
+                      </h5>
+                      <span className="text-[10px] text-slate-500">
+                        รายงาน Open Item List (OIL) PDF จาก Installer, Customer, และประวัติการสกัดข้อยกเว้น
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold text-[10px]">
+                    ความจุฟรี 15 GB
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                      {isGdriveLocked && <span>🔒</span>} บัญชี / อีเมล Google Account 2:
+                    </label>
+                    <input
+                      type={isGdriveLocked ? "password" : "text"}
+                      disabled={isGdriveLocked}
+                      readOnly={isGdriveLocked}
+                      value={isGdriveLocked ? '••••••••••••••••••••••••' : (formData.gdriveOilAccountEmail || '')}
+                      onChange={(e) => setFormData({ ...formData, gdriveOilAccountEmail: e.target.value.trim() })}
+                      placeholder="เช่น sais.oil.tracking@gmail.com"
+                      className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                        isGdriveLocked
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none'
+                          : 'bg-white text-slate-800 font-bold border-indigo-500 focus:ring-2 focus:ring-indigo-500'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                      {isGdriveLocked && <span>🔒</span>} Google Drive Folder ID (สำหรับไฟล์ OIL โดยเฉพาะ):
+                    </label>
+                    <input
+                      type={isGdriveLocked ? "password" : "text"}
+                      disabled={isGdriveLocked}
+                      readOnly={isGdriveLocked}
+                      value={isGdriveLocked ? '••••••••••••••••••••••••••••••••' : (formData.gdriveOilFolderId || '')}
+                      onChange={(e) => setFormData({ ...formData, gdriveOilFolderId: e.target.value.trim() })}
+                      placeholder="เช่น 1_SAIS_OIL_TRACKING_DOCS_ROOT"
+                      className={`w-full text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                        isGdriveLocked
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
+                          : 'bg-white text-slate-800 font-bold border-indigo-500 focus:ring-2 focus:ring-indigo-500'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                    {isGdriveLocked && <span>🔒</span>} Google Drive Web URL บัญชีที่ 2:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type={isGdriveLocked ? "password" : "text"}
+                      disabled={isGdriveLocked}
+                      readOnly={isGdriveLocked}
+                      value={isGdriveLocked ? '••••••••••••••••••••••••••••••••••••••••' : (formData.gdriveOilFolderUrl || '')}
+                      onChange={(e) => setFormData({ ...formData, gdriveOilFolderUrl: e.target.value })}
+                      placeholder="https://drive.google.com/drive/folders/..."
+                      className={`flex-1 text-xs p-2.5 rounded-xl border font-mono text-[11px] transition-all ${
+                        isGdriveLocked
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300 select-none tracking-widest'
+                          : 'bg-white text-slate-800 font-bold border-indigo-500 focus:ring-2 focus:ring-indigo-500'
+                      }`}
+                    />
+                    {formData.gdriveOilFolderId && !isGdriveLocked && (
+                      <a
+                        href={`https://drive.google.com/drive/folders/${formData.gdriveOilFolderId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs flex items-center gap-1 shrink-0"
+                      >
+                        <Icons.ExternalLink size={14} /> เปิดโฟลเดอร์ OIL
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Shared Options */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                  <input
+                    type="checkbox"
+                    disabled={isGdriveLocked}
+                    checked={formData.gdriveAutoOrganizeByProject ?? true}
+                    onChange={(e) =>
+                      setFormData({ ...formData, gdriveAutoOrganizeByProject: e.target.checked })
+                    }
+                    className="w-4 h-4 rounded text-emerald-600"
+                  />
+                  <span>สร้างโฟลเดอร์ย่อยแยกตามชื่องาน / รหัสงาน (Auto-categorize by Project)</span>
+                </label>
+
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-[11px] space-y-1">
+                  <span className="font-bold flex items-center gap-1">
+                    <Icons.CheckCircle size={13} className="text-emerald-600" />
+                    รวมพื้นที่คลาวด์ฟรี 30 GB (15 GB + 15 GB):
+                  </span>
+                  <p className="text-[10px] text-emerald-800 leading-relaxed">
+                    การแยก 2 บัญชี Google Drive ทำให้คุณสามารถใช้โควต้าพื้นที่ฟรีของ Google 15 GB จำนวน 2 บัญชีได้อย่างเต็มที่ โดยไฟล์ PDF รูปภาพหน้างาน และรายงาน OIL จะถูกจัดเก็บแยกกันอย่างเป็นสัดส่วน ปลอดภัย 100%
+                  </p>
                 </div>
               </div>
             </div>
